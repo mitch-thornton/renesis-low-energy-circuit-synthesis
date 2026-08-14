@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<!-- ---------------------------------------------------------------------------
+  adiabatic.html -- browser front end for the energy-aware pipeline
+  Renesis: energy-aware reversible / adiabatic logic synthesis
+
+  Served by adiabatic_server.py (or `renesis ui`); never opened as a
+  file.  The option panel is GENERATED from /options (the shipped
+  options table) so the GUI cannot disagree with the CLI; runs report
+  the console's statistics, the PDF report, and the schematic/SPICE
+  exports, each labeled with the tool that opens it.
+
+  Author:      Mitchell A. Thornton
+  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
+  Modified:    2026-08-10  (Renesis v89.11)
+  Created:     Renesis v89.11 (this cut)
+--------------------------------------------------------------------------- -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Renesis — Adiabatic Synthesis</title>
+<style>
+  :root { --ink:#1a1a2e; --acc:#155e4b; --ok:#1a7f37; --bad:#b42318; }
+  body { font-family: -apple-system, Helvetica, Arial, sans-serif; margin:0;
+         color:var(--ink); background:#f6f9f7; }
+  header { background:var(--acc); color:#fff; padding:14px 24px; }
+  header h1 { margin:0; font-size:20px; font-weight:600; }
+  header p { margin:2px 0 0; font-size:12px; opacity:.85; }
+  main { max-width:1100px; margin:18px auto; padding:0 16px; }
+  .card { background:#fff; border:1px solid #e0e8e3; border-radius:8px;
+          padding:16px 18px; margin-bottom:16px; }
+  .row { display:flex; gap:14px; flex-wrap:wrap; align-items:center; }
+  label { font-size:13px; font-weight:600; }
+  select, button, input[type=number] { font-size:14px; padding:6px 10px;
+                   border-radius:6px; border:1px solid #c4cec8; background:#fff; }
+  button.go { background:var(--acc); color:#fff; border:none; padding:8px 22px;
+              cursor:pointer; font-weight:600; }
+  button.go:disabled { opacity:.5; cursor:default; }
+  #drop { border:2px dashed #b3c2ba; border-radius:8px; padding:26px;
+          text-align:center; color:#666; cursor:pointer; }
+  #drop.hot { border-color:var(--acc); color:var(--acc); background:#edf6f1; }
+  table.stats { border-collapse:collapse; width:100%; font-size:13px; }
+  table.stats td { border-bottom:1px solid #eee; padding:5px 8px; }
+  table.stats td:first-child { font-weight:600; width:42%; }
+  .mono { font-family:ui-monospace, Menlo, monospace; }
+  .minimal { color:var(--ok); font-weight:700; }
+  .err { color:var(--bad); white-space:pre-wrap; font-family:ui-monospace,monospace;
+         font-size:12px; }
+  .svgpage { overflow-x:auto; border:1px solid #eee; border-radius:6px;
+             margin:10px 0; background:#fff; }
+  .svgpage svg { max-width:none; height:auto; }
+  pre.netlist { max-height:280px; overflow:auto; background:#0f172a; color:#d7e2f0;
+                padding:12px; border-radius:6px; font-size:12px; }
+  a.dl { display:inline-block; margin:4px 10px 4px 0; color:var(--acc);
+         font-weight:600; text-decoration:none; }
+  .spin { display:none; margin-left:10px; font-size:13px; color:var(--acc); }
+  /* option field + info button */
+  .opt { display:flex; flex-direction:column; gap:3px; }
+  .opt .lab { display:flex; align-items:center; gap:5px; font-size:13px;
+              font-weight:600; }
+  .info { display:inline-flex; align-items:center; justify-content:center;
+          width:15px; height:15px; border-radius:50%; background:#c9d6cf;
+          color:#123; font-size:11px; font-weight:700; cursor:help;
+          user-select:none; font-style:normal; position:relative; }
+  .info:hover { background:var(--acc); color:#fff; }
+  .info .tip { display:none; position:absolute; left:20px; top:-4px; z-index:20;
+               width:250px; background:#0f172a; color:#e7eef7; font-weight:400;
+               font-size:11.5px; line-height:1.45; padding:8px 10px;
+               border-radius:6px; box-shadow:0 4px 14px rgba(0,0,0,.25); }
+  .info:hover .tip, .info.open .tip { display:block; }
+  label.chk { flex-direction:row; align-items:center; gap:6px; }
+  #techcard h3 { margin:0 0 10px; font-size:15px; }
+  #techcard .row { row-gap:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="banner">Renesis &mdash; Adiabatic Synthesis</h1>
+  <p>irreversible netlist in (.v / .isc / .pla / .aig / .aag / .bench / .blif)
+     &nbsp;&rarr;&nbsp;
+     verified reversible circuit optimised for SWITCHED CAPACITANCE, not qubits
+     &mdash; runs entirely on this machine</p>
+</header>
+<main>
+  <div class="card">
+    <div id="drop"><span id="dropmsg">drop a circuit file here, or click to
+      choose &mdash; accepted: .v .isc .pla .aig .aag .bench .blif</span>
+      <input type="file" id="file" accept=".v,.isc,.pla,.aig,.aag,.bench,.blif" hidden></div>
+    <div class="row" style="margin-top:12px">
+      <div class="opt"><span class="lab">Synthesis / Technology Map
+        <span class="info" data-tip="Which of the two flows to run. Synthesis builds a verified reversible circuit (an MCT network) and leaves scratch lines dirty by design. Technology Map takes the same design on to a dual-rail energy-recovery network priced by switched capacitance -- this is where the technology families, the E2 candidate and the published comparison numbers live. Same engine; the output formats offered below follow whichever you pick.">i</span></span>
+        <select id="pipeline">
+          <option value="rev" selected>Synthesis (reversible circuit)</option>
+          <option value="tech">Technology Map (dual-rail energy-recovery)</option>
+        </select></div>
+      <div class="opt"><span class="lab">K (cover granularity)
+        <span class="info" data-tip="Cut size for the covering stage; any
+        integer the CLI --k N accepts.  The release configuration and every
+        published sweep use K=12; the realizer caps individual cones at 16
+        leaves regardless.">i</span></span>
+        <input type="number" id="K" value="12" min="2" max="24" step="1"
+               style="width:60px"></div>
+      <div class="opt"><span class="lab">switching weight
+        <span class="info" data-tip="Weight on expected switching activity in the reversible cover's cost function. 1.0 (the default, used by every published run) prices a cone by how often its gates are expected to fire; 0 ignores activity and prices structure alone. Raise it to chase activity harder at some cost in gate count.">i</span></span>
+        <input type="number" id="sw" value="1.0" step="0.1" min="0"
+               style="width:70px"></div>
+      <div class="opt"><span class="lab">max cuts / node
+        <span class="info" data-tip="How many K-feasible cuts are enumerated per node before the cover chooses. This bounds front-end cost -- the main runtime knob on big circuits. More cuts widen the search and can find a cheaper cover; fewer make a large design finish. Never affects correctness, only which cover is found.">i</span></span>
+        <input type="number" id="mc" value="32" min="1" step="1"
+               style="width:70px"></div>
+      <div class="opt"><span class="lab">realizer
+        <span class="info" data-tip="How each covered cone becomes gates:
+        fprm = fixed-polarity Reed-Muller plan (the default everywhere);
+        esop = exorcism ESOP cubes; best = run both, keep the cheaper
+        (ties go to FPRM).">i</span></span>
+        <select id="rm">
+          <option value="fprm" selected>fprm (default)</option>
+          <option value="esop">esop</option>
+          <option value="best">best of both</option>
+        </select></div>
+      <div class="opt"><span class="lab">probability tags
+        <span class="info" data-tip="Where the switching probabilities that price the cover come from. Measured p1: forward-simulate the source netlist (4000 trials, fixed seed) and tag every net with its observed one-probability -- what every published number uses. Independent coins: assume every input is a fair, independent coin flip; cheaper, but correlated logic makes it mis-price reconvergent cones.">i</span></span>
+        <select id="tags">
+          <option value="1" selected>measured p1 (tagged cover)</option>
+          <option value="0">independent coins (untagged)</option>
+        </select></div>
+      <div class="opt"><span class="lab">ASP-DAC baseline
+        <span class="info" data-tip="Adds a comparison row: the same netlist rebuilt as the ASP-DAC-style NOR baseline, plus the ratio. With ABC on PATH (or $ABC set) the baseline is OPTIMISED NOR -- the fair version, resyn2 first; without ABC it falls back to naive NOR and the row says so, because naive NOR is an easier baseline and the difference is large. The Technology Map side has its own baseline checkbox in the options card.">i</span></span>
+        <select id="base">
+          <option value="0" selected>off</option>
+          <option value="1">compare (needs ABC for the fair version)</option>
+        </select></div>
+      <div class="opt"><span class="lab">output format
+        <span class="info" data-tip="What the reversible circuit is written as. .real and .tfc are the RevLib/quantum-community formats. .qc and OpenQASM 3.0 are LOSSLESS: the multi-control Toffoli is native, so the gate count is identical to the circuit that was measured. OpenQASM 2.0 has no multi-control X, so gates with 3+ controls are decomposed (dirty-ancilla V-chain) -- the file header states both gate counts and the decomposition is equivalence-checked against the original before anything is written. .tex is a quantikz drawing for a paper, not a netlist.">i</span></span>
+        <select id="fmt">
+          <option value="real" selected>.real — RevLib (lossless)</option>
+          <option value="tfc">.tfc — RevLib TFC (lossless)</option>
+          <option value="qc">.qc — QCViewer / Quipper (lossless)</option>
+          <option value="qasm3">.qasm — OpenQASM 3.0 (lossless)</option>
+          <option value="qasm">.qasm — OpenQASM 2.0 (decomposed)</option>
+          <option value="tex">.tex — quantikz figure</option>
+        </select></div>
+      <div class="opt" id="indfmtwrap"><span class="lab">independent netlist
+        <span class="info" data-tip="Format for the technology-INDEPENDENT netlist -- the design after re-synthesis and before any technology decision, i.e. the portable artifact. The mapped dual-rail network is ALWAYS written too, as .tgn plus a structural _mapped.v and its stub cell library. Verilog dialects: cells = named library-cell instances plus a stub library you replace with characterized models; iscas = gate primitives, the dialect this tool's own parser reads, so it round-trips; assign = continuous assignments.">i</span></span>
+        <select id="indfmt">
+          <option value="blif" selected>.blif — lossless cube cover (CLI default)</option>
+          <option value="v:cells">.v — Verilog, cells dialect</option>
+          <option value="v:iscas">.v — Verilog, ISCAS primitives (round-trips)</option>
+          <option value="v:assign">.v — Verilog, continuous assign</option>
+          <option value="bench">.bench — ISCAS BENCH</option>
+          <option value="pla">.pla — two-level cover</option>
+        </select></div>
+      <button class="go" id="go" disabled>Synthesize</button>
+      <button class="go" id="newckt" style="background:#666"
+              title="clear the loaded circuit, results and options">New circuit</button>
+      <button class="go" id="quit" style="background:#a33"
+              title="stop the local server and end the session">Quit</button>
+      <span class="spin" id="spin">running&hellip;</span>
+    </div>
+    <div id="err" class="err"></div>
+  </div>
+
+  <div class="card" id="techcard" style="display:none">
+    <h3>technology-mapping options
+      <span style="font-weight:400;font-size:12px;color:#666">
+      — generated from <code>config/renesis_options.json</code>, the same
+      declaration the CLI reads; hover an <span class="info"
+      style="cursor:help">i</span> for what each option means</span></h3>
+    <div class="row" id="techsel"></div>
+    <div id="optpanel"><em style="font-size:12px;color:#666">loading the
+      options table…</em></div>
+    <!-- v90.7 item 7b: one row per artifact.  The single "also produce
+         circuit description files" checkbox hid the fact that a SPICE deck
+         was available at all (owner report), and gave no way to ask for
+         just one thing. -->
+    <div style="margin-top:12px"><strong style="font-size:13px">circuit
+      description files</strong></div>
+    <label class="chk"><input type="checkbox" id="exp_schematic" checked>
+      gate-level schematic — Graphviz <code>.dot</code>, rendered
+      <code>.svg</code> and <code>.pdf</code>
+      <span class="info" data-tip="The technology-INDEPENDENT netlist and the MAPPED dual-rail network as Graphviz graphs, each rendered to SVG (for the preview below) and PDF (for zooming and printing). Needs graphviz on PATH for the renders; without it the .dot files are still written and the run says which tool is missing.">i</span></label>
+    <label class="chk"><input type="checkbox" id="exp_yosys" checked>
+      Yosys JSON — for <code>netlistsvg</code>
+      <span class="info" data-tip="A Yosys-format JSON netlist. `netlistsvg FILE -o out.svg` renders a publication-quality schematic with proper gate symbols. Optional: npm install -g netlistsvg.">i</span></label>
+    <label class="chk"><input type="checkbox" id="exp_spice" checked>
+      ngspice deck <code>.sp</code> — <em>STUB device models</em>
+      <span class="info" data-tip="An ngspice-runnable deck of the mapped dual-rail network: one subcircuit instance per pass device, mirroring the energy model's device count exactly. Run it with `ngspice -b FILE`. The STRUCTURE is exact; the DEVICE MODELS ARE STUBS (level-1 MOSFETs sized from the family's R_on and device capacitance) -- replace them with characterized PDK models before drawing any energy conclusion. The deck header says the same.">i</span></label>
+    <label class="chk"><input type="checkbox" id="exp_devices" checked>
+      transistor-level view — nets and pass devices
+      <span class="info" data-tip="A device-level schematic: every electrical net is a node, every pass device an edge labelled with the literal that gates it, the power clock highlighted. Derived from the ngspice deck itself, so its device count cannot disagree with the count the energy model billed. Large designs are capped -- the picture states how many devices were drawn out of the total.">i</span>
+      <span style="font-size:12px;color:#666">&nbsp;cap
+      <input type="number" id="dev_max" value="400" min="20" step="20"
+             style="width:70px"> devices</span></label>
+    <label class="chk"><input type="checkbox" id="t_baseline">
+      compare against the ASP-DAC baseline (optimised NOR)
+      <span class="info" data-tip="Runs the same netlist a SECOND time at the comparison target (config/technology/nor.json) and reports both energies plus the ratio. On the mapping side the baseline is a target technology, not a column, so this is a second full run -- it roughly doubles the runtime. Both sides run under identical conventions; published tables use charge_pi=off. Needs ABC for the OPTIMISED-NOR construction; without ABC the comparison is reported as unavailable rather than silently substituting the easier naive-NOR baseline.">i</span></label>
+    <div style="margin-top:8px;font-size:12px;color:#666">Reports
+      switched-capacitance energy (cv2_cycle_pJ) and writes a dual-rail
+      <code>.tgn</code>. Every field maps to a CLI flag or
+      <code>--option</code> in <code>RENESIS-MANUAL.md</code>.</div>
+  </div>
+
+  <div class="card" id="revnote" style="padding:10px 18px;font-size:12px;color:#555">
+    This pipeline differs from the quantum tool by design: scratch is LEFT DIRTY
+    (uncomputation costs more switching energy than the Landauer erasure it
+    avoids, measured crossover &approx; half of kT&nbsp;ln2), wide gates cost
+    linear not exponential, and the cover is priced by expected switched
+    capacitance. Width is deliberately not minimised. See ADIABATIC-VS-QUANTUM.md.
+  </div>
+
+  <div class="card" id="statcard" style="display:none">
+    <h3 style="margin-top:0">energy statistics</h3>
+    <table class="stats" id="stats"></table>
+    <div style="margin-top:10px">
+      <a class="dl" id="dl_net" download>download netlist</a>
+      <a class="dl" id="dl_pdf" download>download PDF report</a>
+    </div>
+  </div>
+
+  <div class="card" id="expcard" style="display:none">
+    <h3 style="margin-top:0">circuit description files
+      <button class="go" id="dl_all"
+              style="padding:5px 14px;font-size:12px;margin-left:12px">
+        Download all</button></h3>
+    <div style="font-size:12px;color:#666;margin-bottom:6px"><strong>Every
+      file here is delivered as a browser download</strong> — click it and it
+      lands in your browser's download folder (usually ~/Downloads).  The
+      server writes nothing to disk: each run happens in a temporary
+      directory that is deleted when the run completes.  Each file lists
+      the tool that opens it. The SPICE deck carries STUB device models —
+      replace them with characterized PDK models before drawing energy
+      conclusions (the deck header says the same).</div>
+    <div id="exports"></div>
+  </div>
+
+  <div class="card" id="ckt" style="display:none">
+    <h3 style="margin-top:0">circuit view
+      <span style="font-weight:400;font-size:12px;color:#666"
+            id="pageinfo"></span></h3>
+    <!-- v90.7 item 15: SAVE lives on the card it saves, not in another
+         card, and the range field lets a long circuit be exported in
+         viewable page-sized pieces. -->
+    <div class="row" style="margin-bottom:8px;font-size:12px">
+      <a class="dl" id="save_ckt_pdf" download>SAVE circuit view (PDF)</a>
+      <a class="dl" id="save_ckt_svg" download>SAVE this page (SVG)</a>
+      <label style="font-weight:400">pages
+        <span class="info" data-tip="Which circuit pages 'SAVE selected pages' renders: 'all', or a list like 1-10,25,40-52 using the page numbers shown in the preview titles. The selection is re-rendered server-side, so the numbering you type is the numbering you saw.">i</span>
+        <input type="text" id="pagerange" placeholder="all, or 1-10,25,40-52"
+               style="width:170px;font-size:12px;padding:4px 6px"></label>
+      <button class="go" id="save_range" style="padding:5px 14px;font-size:12px">
+        SAVE selected pages</button>
+      <label class="chk" style="font-weight:400"><input type="checkbox"
+        id="pdf_uncapped"> uncapped
+        <span class="info" data-tip="Off: the PDF stops at 200 pages, states which pages were omitted, and ALWAYS draws the last page so the primary outputs are visible. On: every page is rendered, however many -- accurate to the label, but a very large circuit can take a long time.">i</span></label>
+    </div>
+    <div id="pages"></div>
+  </div>
+
+  <div class="card" id="netcard" style="display:none">
+    <h3 style="margin-top:0">netlist
+      <span style="font-weight:400;font-size:12px;color:#666"
+            id="netinfo"></span></h3>
+    <div style="margin-bottom:8px">
+      <a class="dl" id="save_net" download>SAVE netlist (full file)</a>
+    </div>
+    <pre class="netlist" id="nettext"></pre>
+  </div>
+</main>
+<script>
+if (location.protocol === 'file:') {
+  document.body.innerHTML = '<div style="max-width:640px;margin:80px auto;' +
+    'font-family:-apple-system,Helvetica,sans-serif;line-height:1.5">' +
+    '<h2>This page must be served, not opened as a file.</h2>' +
+    '<p>Requests from a <code>file://</code> page cannot reach the local ' +
+    'synthesis server.</p><p>Run<br><code>python3 ' +
+    'scripts_adiabatic/adiabatic_server.py</code><br>and open ' +
+    '<a href="http://localhost:8766">http://localhost:8766</a> instead.</p></div>';
+  throw new Error('opened via file://');
+}
+let fileData = null, fileName = null;
+const drop = document.getElementById('drop'), fi = document.getElementById('file');
+drop.onclick = () => fi.click();
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('hot'); };
+drop.ondragleave = () => drop.classList.remove('hot');
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove('hot');
+                     if (e.dataTransfer.files[0]) take(e.dataTransfer.files[0]); };
+fi.onchange = () => { if (fi.files[0]) take(fi.files[0]); };
+// info buttons: hover shows the tip (CSS); build the tip node from data-tip and
+// allow click/tap to pin it open on touch devices.  A function, because the
+// options panel adds info buttons dynamically after /options loads.
+function attachTips(root) {
+  (root || document).querySelectorAll('.info[data-tip]').forEach(el => {
+    if (el.querySelector('.tip')) return;
+    const tip = document.createElement('span');
+    tip.className = 'tip'; tip.textContent = el.getAttribute('data-tip');
+    el.appendChild(tip);
+    el.onclick = e => { e.stopPropagation();
+      document.querySelectorAll('.info.open').forEach(o => { if (o!==el) o.classList.remove('open'); });
+      el.classList.toggle('open'); };
+  });
+}
+attachTips(document);
+
+// ---- the options panel, generated from the table the CLI reads ----------
+let OPT = null;            // {table, defaults, technologies}
+async function loadOptions() {
+  try {
+    const r = await fetch('/options'); OPT = await r.json();
+    // technology selector, from the shipped + user-visible descriptions
+    const ts = document.getElementById('techsel');
+    ts.innerHTML = '';                 // idempotent: New circuit re-calls us
+    const wrap = document.createElement('div'); wrap.className = 'opt';
+    wrap.innerHTML = '<span class="lab">target technology <span class="info"'
+      + ' data-tip="One JSON file per technology in config/technology/;'
+      + ' v89.9+ both the Python and C tools read the full parameter set'
+      + ' from it, and you can add your own family file.">i</span></span>';
+    const sel = document.createElement('select'); sel.id = 't_technology';
+    for (const t of OPT.technologies) {
+      const o = document.createElement('option');
+      o.value = t.name; o.textContent = t.name +
+        (t.role !== 'mapping_target' ? ' (' + t.role + ')' : '');
+      if (t.name === OPT.defaults.technology) o.selected = true;
+      sel.append(o);
+    }
+    wrap.append(sel); ts.append(wrap);
+    // one control per table option, grouped by section
+    const panel = document.getElementById('optpanel'); panel.innerHTML = '';
+    for (const [sect, body] of Object.entries(OPT.table)) {
+      if (sect.startsWith('_')) continue;
+      const h = document.createElement('h4');
+      h.textContent = sect; h.style.margin = '12px 0 6px';
+      panel.append(h);
+      const row = document.createElement('div'); row.className = 'row';
+      for (const [name, spec] of Object.entries(body)) {
+        if (name.startsWith('_') || typeof spec !== 'object') continue;
+        if (name === 'technology') continue;   // the selector above
+        const d = OPT.defaults[name];
+        const opt = document.createElement('div'); opt.className = 'opt';
+        const lab = document.createElement('span'); lab.className = 'lab';
+        lab.textContent = name + ' ';
+        const info = document.createElement('span'); info.className = 'info';
+        info.setAttribute('data-tip', (spec.help || '') +
+          (spec.legal ? '  Legal: ' + JSON.stringify(spec.legal) : ''));
+        info.textContent = 'i';
+        lab.append(info); opt.append(lab);
+        let inp;
+        if (typeof d === 'boolean') {
+          inp = document.createElement('input'); inp.type = 'checkbox';
+          inp.checked = d;
+        } else if (Array.isArray(spec.legal) && spec.legal.length &&
+                   typeof d === 'string') {
+          inp = document.createElement('select');
+          for (const v of spec.legal) {
+            const o = document.createElement('option');
+            o.value = String(v); o.textContent = String(v);
+            if (String(v) === String(d)) o.selected = true;
+            inp.append(o);
+          }
+        } else if (typeof d === 'number') {
+          inp = document.createElement('input'); inp.type = 'number';
+          inp.value = d; inp.step = 'any'; inp.style.width = '90px';
+        } else {
+          inp = document.createElement('input'); inp.type = 'text';
+          inp.value = d === null ? '' : String(d); inp.style.width = '110px';
+        }
+        inp.id = 'opt_' + name; inp.dataset.opt = name;
+        opt.append(inp); row.append(opt);
+      }
+      panel.append(row);
+    }
+    attachTips(panel); attachTips(ts);
+  } catch (e) {
+    document.getElementById('optpanel').textContent =
+      'could not load /options: ' + e;
+  }
+}
+loadOptions();
+
+function collectOptions(body) {
+  // send only values that DIFFER from the shipped default, keyed by the
+  // exact table name -- the run header then reports them as non-default,
+  // exactly as the CLI would.
+  if (!OPT) return;
+  body.technology = document.getElementById('t_technology').value;
+  body.tech = body.technology;
+  for (const inp of document.querySelectorAll('#optpanel [data-opt]')) {
+    const name = inp.dataset.opt, d = OPT.defaults[name];
+    let v;
+    if (inp.type === 'checkbox') v = inp.checked;
+    else if (inp.type === 'number') v = inp.value === '' ? d : Number(inp.value);
+    else v = inp.value;
+    const differs = (typeof d === 'boolean') ? v !== d :
+                    (d === null) ? String(v) !== '' :
+                    String(v) !== String(d);
+    if (differs) body[name] = v;
+  }
+  // v90.7: per-artifact export flags + the mapping-side ASP-DAC compare
+  const _if = document.getElementById('indfmt').value.split(':');
+  body.out_format = _if[0];
+  if (_if[1]) body.verilog_style = _if[1];
+  body.exp_schematic = document.getElementById('exp_schematic').checked;
+  body.exp_yosys     = document.getElementById('exp_yosys').checked;
+  body.exp_spice     = document.getElementById('exp_spice').checked;
+  body.exp_devices   = document.getElementById('exp_devices').checked;
+  body.dev_max       = parseInt(document.getElementById('dev_max').value, 10);
+  body.baseline      = document.getElementById('t_baseline').checked;
+  // kept for older servers that only understand the all-or-nothing switch
+  body.exports = body.exp_schematic || body.exp_yosys ||
+                 body.exp_spice || body.exp_devices;
+}
+document.body.addEventListener('click', () =>
+  document.querySelectorAll('.info.open').forEach(o => o.classList.remove('open')));
+// pipeline toggle: show the tech option card OR the reversible note+fields
+const pipeSel = document.getElementById('pipeline');
+function syncPipeline() {
+  const tech = pipeSel.value === 'tech';
+  // same engine either way, but in the mapping context the honest label
+  // is the mapping step -- avoids "Synthesize" meaning two things (v89.11)
+  document.getElementById('go').textContent = tech ? 'Technology Map' : 'Synthesize';
+  // v90.7: the banner names the mode you are in, and the tab title with it.
+  const title = tech ? 'Renesis — Technology Mapper'
+                     : 'Renesis — Adiabatic Synthesis';
+  document.getElementById('banner').textContent = title;
+  document.title = title;
+  document.getElementById('techcard').style.display = tech ? '' : 'none';
+  document.getElementById('revnote').style.display  = tech ? 'none' : '';
+  // reversible-only inline fields (v89.12: max_cuts + realizer joined them)
+  ['sw','mc','rm','tags','base','fmt'].forEach(id => {
+    const n = document.getElementById(id);
+    if (n) n.closest('label,.opt').style.display = tech ? 'none' : '';
+  });
+  // v90.7: the independent-netlist format menu is the mapping side's
+  // counterpart to `fmt`, so it shows exactly when `fmt` hides.
+  const iw = document.getElementById('indfmtwrap');
+  if (iw) iw.style.display = tech ? '' : 'none';
+}
+pipeSel.onchange = syncPipeline; syncPipeline();
+// v89.11: NEW CIRCUIT -- clear the loaded file, every result card, and the
+// error line, and return the generated option panel to its defaults.
+// v90.7 BUG FIX: this used to re-query getElementById('file'), but take()
+// had already destroyed #drop's children with textContent -- so the input
+// was detached, the lookup returned null, and the handler threw on
+// null.value before clearing anything.  New circuit therefore worked only
+// when nothing had been loaded, i.e. never when you would press it.  The
+// message now lives in its own #dropmsg span and the captured `fi`
+// reference is used, so no element is ever destroyed.
+document.getElementById('newckt').onclick = () => {
+  fileData = fileName = null;
+  fi.value = '';
+  document.getElementById('dropmsg').textContent =
+    'drop a circuit file here, or click to choose — accepted: ' +
+    '.v .isc .pla .aig .aag .bench .blif';
+  ['statcard','expcard','ckt','netcard'].forEach(id => {
+    const n = document.getElementById(id); if (n) n.style.display = 'none';
+  });
+  document.getElementById('err').textContent = '';
+  document.getElementById('go').disabled = true;
+  loadOptions();                              // rebuild panel = defaults
+};
+// v89.11: QUIT -- stop the local server (renesis ui sessions end here).
+// v90.7 item 10: SAVE selected pages -- re-renders just the requested
+// range server-side rather than trying to slice a finished PDF.
+document.getElementById('save_range').onclick = async () => {
+  if (!fileData) { alert('load a circuit first'); return; }
+  const rng = document.getElementById('pagerange').value.trim();
+  const body = { filename:fileName, content_b64:fileData,
+                 page_range: rng, pdf_only: true };
+  if (document.getElementById('pdf_uncapped').checked) body.pdf_uncapped = true;
+  const r = await fetch('/pages', { method:'POST',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+  const j = await r.json();
+  if (j.error) { alert(j.error); return; }
+  const pb = Uint8Array.from(atob(j.pdf_b64), c => c.charCodeAt(0));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([pb], {type:'application/pdf'}));
+  a.download = j.pdf_name; a.click();
+};
+document.getElementById('quit').onclick = async () => {
+  if (!confirm('Stop the local Renesis server?')) return;
+  try { await fetch('/quit', {method:'POST'}); } catch (e) {}
+  document.body.innerHTML =
+    '<header><h1>Renesis</h1><p>server stopped -- you can close ' +
+    'this tab.  Restart with  ./renesis ui</p></header>';
+};
+function take(f) {
+  fileName = f.name;
+  const r = new FileReader();
+  r.onload = () => { fileData = r.result.split(',')[1];
+                     // v90.7: write to the message span, never to #drop
+                     // itself -- textContent on #drop deletes the file input
+                     // that lives inside it (see the New circuit fix).
+                     document.getElementById('dropmsg').textContent =
+                       'ready: ' + f.name;
+                     document.getElementById('go').disabled = false; };
+  r.readAsDataURL(f);
+}
+document.getElementById('go').onclick = async () => {
+  const go = document.getElementById('go'), spin = document.getElementById('spin');
+  go.disabled = true; spin.style.display = 'inline';
+  document.getElementById('err').textContent = '';
+  try {
+    const pipeline = document.getElementById('pipeline').value;
+    const body = { filename:fileName, content_b64:fileData, pipeline:pipeline,
+      K:parseInt(document.getElementById('K').value,10) };
+    if (pipeline === 'tech') {
+      collectOptions(body);
+    } else {
+      Object.assign(body, {
+        sw_weight:parseFloat(document.getElementById('sw').value),
+        max_cuts:parseInt(document.getElementById('mc').value,10),
+        realise_mode:document.getElementById('rm').value,
+        tags:document.getElementById('tags').value === '1',
+        baseline:document.getElementById('base').value === '1',
+        out_format:document.getElementById('fmt').value });
+    }
+    const resp = await fetch('/synth', { method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body)});
+    const start = await resp.json();
+    if (!start.job) {
+      document.getElementById('err').textContent = start.error || 'no job id';
+      return;
+    }
+    let j = null;
+    for (let tick = 0; ; tick++) {
+      await new Promise(r => setTimeout(r, 1500));
+      const rr = await fetch('/result?job=' + start.job);
+      j = await rr.json();
+      if (j.state === 'running') {
+        spin.textContent = 'running… ' + Math.round(tick * 1.5) + 's';
+        continue;
+      }
+      break;
+    }
+    if (j.state === 'error') {
+      document.getElementById('err').textContent = j.error; return;
+    }
+    if (!j.ok) { document.getElementById('err').textContent = j.error || 'failed'; return; }
+    const st = document.getElementById('stats'); st.innerHTML = '';
+    for (const [k,v] of Object.entries(j.stats)) {
+      const tr = document.createElement('tr');
+      const td1 = document.createElement('td'); td1.textContent = k;
+      const td2 = document.createElement('td'); td2.textContent = v;
+      td2.classList.add('mono');
+      if (String(v).includes('OK')) td2.classList.add('minimal');
+      tr.append(td1, td2); st.append(tr);
+    }
+    document.getElementById('statcard').style.display = '';
+    const nb = new Blob([j.netlist_text], {type:'text/plain'});
+    const dn = document.getElementById('dl_net');
+    dn.href = URL.createObjectURL(nb); dn.download = j.netlist_name;
+    dn.textContent = 'download ' + j.netlist_name;
+    const dp = document.getElementById('dl_pdf');
+    if (j.pdf_b64) {
+      const pb = Uint8Array.from(atob(j.pdf_b64), c => c.charCodeAt(0));
+      dp.href = URL.createObjectURL(new Blob([pb], {type:'application/pdf'}));
+      dp.download = j.pdf_name; dp.textContent = 'download ' + j.pdf_name;
+      dp.style.display = '';
+    } else { dp.style.display = 'none'; }
+    const ex = document.getElementById('exports'); ex.innerHTML = '';
+    // v90.8: Download all -- clicks every file link so nobody has to hunt
+    // one by one.  The browser may ask once for multiple-download
+    // permission; that is the browser, not Renesis.
+    const dla = document.getElementById('dl_all');
+    dla.onclick = () => {
+      const links = ex.querySelectorAll('a.dl');
+      let i = 0;
+      const tick = () => { if (i < links.length) { links[i++].click();
+                                                   setTimeout(tick, 250); } };
+      tick();
+    };
+    if (j.exports && j.exports.length) {
+      for (const f of j.exports) {
+        const div = document.createElement('div');
+        const bytes = Uint8Array.from(atob(f.b64), c => c.charCodeAt(0));
+        let a;
+        if (f.name.includes('NOT PRODUCED')) {
+          a = document.createElement('span');
+          a.style.cssText = 'color:#a33;font-size:13px;font-weight:600';
+          a.textContent = f.name;
+        } else {
+          a = document.createElement('a'); a.className = 'dl';
+          a.href = URL.createObjectURL(new Blob([bytes]));
+          a.download = f.name; a.textContent = f.name;
+        }
+        div.append(a);
+        const note = document.createElement('span');
+        note.style.cssText = 'font-size:12px;color:#666';
+        note.textContent = f.tool ? ' — open with: ' + f.tool : '';
+        div.append(note);
+        ex.append(div);
+        if (f.name.endsWith('.svg')) {
+          const sd = document.createElement('div');
+          sd.className = 'svgpage';
+          sd.innerHTML = new TextDecoder().decode(bytes);
+          ex.append(sd);
+        }
+      }
+      document.getElementById('expcard').style.display = '';
+    } else { document.getElementById('expcard').style.display = 'none'; }
+    const pages = document.getElementById('pages'); pages.innerHTML = '';
+    for (const svg of j.svgs) {
+      const d = document.createElement('div');
+      d.className = 'svgpage'; d.innerHTML = svg; pages.append(d);
+    }
+    // v90.7 item 10: say what fraction of the circuit is on screen.  Ten
+    // pages with no total looks like the whole circuit; it usually is not.
+    const pi = document.getElementById('pageinfo');
+    if (j.total_pages && j.preview_pages) {
+      pi.textContent = (j.total_pages > j.preview_pages)
+        ? '— showing ' + j.preview_pages + ' of ' + j.total_pages +
+          ' pages (first pages, then the LAST page; SAVE for the rest)'
+        : '— all ' + j.total_pages + ' page(s) shown';
+    } else { pi.textContent = ''; }
+    // v90.7 item 15: SAVE on the card itself.
+    const spdf = document.getElementById('save_ckt_pdf');
+    if (j.pdf_b64) {
+      const pb2 = Uint8Array.from(atob(j.pdf_b64), c => c.charCodeAt(0));
+      spdf.href = URL.createObjectURL(new Blob([pb2], {type:'application/pdf'}));
+      spdf.download = j.pdf_name;
+      spdf.textContent = 'SAVE circuit view — ' + j.pdf_name +
+        (j.total_pages ? ' (all ' + j.total_pages + ' pages)' : '');
+      spdf.style.display = '';
+    } else { spdf.style.display = 'none'; }
+    const ssvg = document.getElementById('save_ckt_svg');
+    if (j.svgs && j.svgs.length) {
+      ssvg.href = URL.createObjectURL(
+        new Blob([j.svgs[0]], {type:'image/svg+xml'}));
+      ssvg.download = (j.netlist_name || 'circuit').replace(/\.[^.]*$/, '')
+                      + '_page1.svg';
+      ssvg.style.display = '';
+    } else { ssvg.style.display = 'none'; }
+    document.getElementById('ckt').style.display =
+      (j.svgs && j.svgs.length) ? '' : 'none';
+    // the PREVIEW is truncated; the SAVE is not, and says so.
+    const full = j.netlist_text, trunc = full.length > 20000;
+    document.getElementById('nettext').textContent = trunc ?
+      full.slice(0, 20000) +
+      '\n... preview truncated at 20,000 characters — SAVE writes the ' +
+      'COMPLETE netlist' : full;
+    document.getElementById('netinfo').textContent =
+      '— ' + j.netlist_name + ', ' + full.length.toLocaleString() +
+      ' characters' + (trunc ? ' (preview truncated, SAVE is complete)' : '');
+    const sn = document.getElementById('save_net');
+    sn.href = URL.createObjectURL(new Blob([full], {type:'text/plain'}));
+    sn.download = j.netlist_name;
+    sn.textContent = 'SAVE netlist — ' + j.netlist_name + ' (full file)';
+    document.getElementById('netcard').style.display = '';
+  } catch (e) {
+    document.getElementById('err').textContent = String(e);
+  } finally { go.disabled = false; spin.style.display = 'none'; }
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+{
+ "target_technology": "pal",
+ "role": "mapping_target",
+ "description": "PAL (pass-transistor adiabatic logic): dual-rail NMOS pass networks with cross-coupled PMOS load, two-phase power clock; device-level quasi-adiabatic residues folded into A15",
+ "note": "",
+ "mapper_kind": "dualrail_sp",
+ "parameters": {
+  "dual_rail": true,
+  "series_limit": 4,
+  "series_cap": 6,
+  "n_phases": 2,
+  "gate_overhead_dev": 2,
+  "out_self_load_dev": 1,
+  "clock_load_dev": 0,
+  "nonadiabatic_residue": 0.0,
+  "nmos_only": true,
+  "c_dev_ff": 0.85,
+  "c_out_ff": 3.4,
+  "r_on_ohm": 10000.0,
+  "v": 1.1
+ },
+ "mapper_family": "pal"
+}

@@ -1,0 +1,363 @@
+{
+ "_schema": "renesis options table v1 (bundle v82)",
+ "_rule": "Every default here is the value assumed by the 20-circuit release validation (owner's rule, 2026-08-03). Where a library function's own default differs, THIS FILE WINS and the difference is recorded in `code_default`. Edit this file, pass --option NAME=VALUE, or point renesis at a different table with --options FILE.",
+ "_consumers": [
+  "renesis (Python)",
+  "renesis (C, v83)",
+  "the .html interfaces",
+  "the future synthesis script"
+ ],
+ "target": {
+  "technology": {
+   "default": "tgate_sl6",
+   "legal": "any file basename in config/technology/",
+   "help": "Target technology. Read from config/technology/<name>.json, which carries the cell model, structural constraints and clocking discipline. 'tgate_sl6' is PTL with the campaign's series_limit=6 convention and is what every published number uses; 'tgate' is the same family with the mapper's built-in limit of 4. 'nor' is not a real target: it selects the comparison-baseline construction.",
+   "suggested_28nm": "tgate_sl6"
+  },
+  "technology_dir": {
+   "default": "config/technology",
+   "legal": "a directory path",
+   "help": "Directory the technology description files are read from. Point it at your own directory to use target descriptions you maintain outside the bundle; any .json in there becomes selectable by basename, in the CLI and in this menu alike."
+  }
+ },
+ "frontend": {
+  "netprep": {
+   "default": false,
+   "legal": [
+    true,
+    false
+   ],
+   "help": "Opt-in structural preprocessing (strash, balance, rewrite) applied BEFORE covering. This is ordinary AIG tidying: it can improve what the cover has to work with, but it also means the netlist you mapped is not literally the netlist you supplied. OFF by default so results are attributable to the source design.",
+   "code_default": false
+  },
+  "tag_trials": {
+   "default": 4000,
+   "legal": "integer >= 256; 4000 in every published run",
+   "help": "Monte-Carlo trials for the forward switching-probability (p1) tag sweep. Lower is faster and noisier. IT ONLY MATTERS UNDER cover_mode=switching AND under --net-activity: the shipped tech cover takes no tags at all (tech_aware_cover has no tags argument), and the activity figure the run reports comes from energy_report's own independent sweep. On a default run this option is inert -- 256 and 60000 give byte-identical output. Before v88.1 the sweep still RAN on a default run and was discarded, at 24-25 percent of the cost of pricing one candidate, on every candidate of every optimization pass; v88.1 skips it when no cover can read it. This help text used to claim the opposite.",
+   "code_default": 4000
+  },
+  "tag_seed": {
+   "default": 1,
+   "legal": "integer",
+   "help": "Seed for the switching-probability (p1) tag sweep. Fixed so the tag sweep -- and therefore the cover it drives, and therefore the reported energy -- is reproducible run to run. Change it only to test the sensitivity of a result to the tag sample.",
+   "code_default": 1
+  }
+ },
+ "cover": {
+  "k": {
+   "default": 12,
+   "legal": "4..16 practical; 12 in every published run",
+   "help": "Cut size for the K-feasible cover -- the largest number of inputs a single covered block may have. Larger K means bigger blocks, fewer of them, and a more expensive realizer per block; smaller K means more, simpler blocks. K=12 is what the release configuration and every published number use. The realizer caps an individual cone at 16 leaves regardless of K.",
+   "code_default": 12,
+   "suggested_28nm": 12
+  },
+  "max_cuts": {
+   "default": 32,
+   "legal": "integer >= 4",
+   "help": "How many K-feasible cuts are enumerated per node before the cover picks one. Cut enumeration is the front end's dominant cost, so this is the main runtime knob at large K: raising it widens the search and can find a cheaper cover, lowering it makes a big circuit finish. It never changes correctness, only which cover is found.",
+   "code_default": 32
+  },
+  "cover_mode": {
+   "default": "tech",
+   "legal": [
+    "tech",
+    "switching"
+   ],
+   "help": "Which cover prices the cuts. 'tech' prices each candidate by its exact realisation cost in the chosen technology; 'switching' by switching activity only. v87.1 removed 'flowmap' and 'abc' from this list: the dispatch has only ever had two branches, so those two values were accepted and then silently meant 'switching'.",
+   "code_default": "switching",
+   "AUDIT": "tech_synth's own default is 'switching'; the release validation passes 'tech'. This table restores the release value."
+  },
+  "k_ladder": {
+   "default": "",
+   "legal": "comma-separated K values, e.g. '12,8,6,4'; the FIRST rung is the incumbent and always completes; empty = OFF (single --k run)",
+   "help": "v89.7. Run the covering stage at each listed K and keep a champion. The first rung is the incumbent; a later rung is accepted only under the `accept` rule, so the ladder can never return something worse than its first rung. Justified by the measured 20-circuit K-sweep: c880 at K=8 beats K=12 on BOTH energy tables, so the heuristic is not monotone in K. Empty (default) reproduces the v89.6 flow byte-for-byte. Every rung is receipted in the run record. Not combinable with bdec or a comparison baseline. Python orchestrator only in this cut; the C tool refuses it by name.",
+   "code_default": ""
+  },
+  "k_ladder_s": {
+   "default": 0,
+   "legal": "seconds >= 0; 0 = no budget",
+   "help": "v89.7. Wall-clock budget for the K-ladder rungs AFTER the first. The incumbent always completes; once the budget is spent, remaining rungs are recorded SKIPPED (budget) and the best COMPLETED rung wins -- the ladder degrades to its incumbent, never to nothing. Needs k_ladder.",
+   "code_default": 0
+  },
+  "accept": {
+   "default": "both",
+   "legal": [
+    "both",
+    "t2"
+   ],
+   "help": "v89.7. Rung acceptance rule for the K-LADDER ONLY. 'both' = improve one energy table and worsen neither (the same never-regress rule every optimization gate in this tool applies). 't2' = accept on a capped-table (T2) improvement alone, trading T1 freely: on cap-bound circuits the K-sweep measured T2 wins up to -72% that 'both' correctly refuses because they pay T1. The candidate gate inside the mapper keeps the release rule unconditionally -- this option cannot change it. Needs k_ladder.",
+   "code_default": "both"
+  }
+ },
+ "mapping": {
+  "route": {
+   "default": "auto",
+   "legal": [
+    "auto",
+    "shallow",
+    "structural"
+   ],
+   "help": "Block realisation route. 'auto' lets the energy model choose per block -- the ONLY place the energy model makes a structural rather than a reporting decision. 'shallow' forces the exact small-support form and is REFUSED on circuits with more than 16 inputs. v87.1 corrected this list: it previously read auto/direct/bdd, and 'direct' and 'bdd' were accepted and then silently meant 'structural'.",
+   "code_default": "auto"
+  },
+  "dev_weight": {
+   "default": 0.0,
+   "legal": "float >= 0",
+   "help": "Weight on DEVICE COUNT in the cover's cost function. The cover scores each candidate block as a weighted sum of switched capacitance, devices, depth, input loading and area; raising this term biases the cover toward smaller transistor counts at the expense of the other terms. 0 (the default) means device count does not influence the choice -- energy does.",
+   "code_default": 0.05,
+   "AUDIT": "code default 0.05; release validation uses 0.0."
+  },
+  "depth_weight": {
+   "default": 0.5,
+   "legal": "float >= 0",
+   "help": "Weight on LOGIC DEPTH in the cover's cost function. Raising it biases the cover toward shallower blocks, which shortens the critical path and reduces the number of power-clock phases the mapped network needs, usually at some cost in energy. See dev_weight for how the terms combine.",
+   "code_default": 0.5
+  },
+  "iload_weight": {
+   "default": 5.0,
+   "legal": "float >= 0",
+   "help": "Weight on INPUT LOADING in the cover's cost function -- how much a block is penalised for the capacitance it presents to whatever drives it. This matters in a dual-rail energy-recovery network because a loaded rail is charged and discharged every cycle. 5.0 is the released comparison configuration.",
+   "code_default": 0.0,
+   "AUDIT": "code default 0.0; release validation uses 5.0."
+  },
+  "area_weight": {
+   "default": 1.0,
+   "legal": "float >= 0",
+   "help": "Weight on AREA in the cover's cost function. Off by default: the tool optimises switched capacitance, and area is reported rather than minimised. Raise it only if you are trading energy for silicon deliberately. See dev_weight for how the terms combine.",
+   "code_default": 1.0
+  },
+  "absorb_fo1": {
+   "default": "exact",
+   "legal": [
+    "exact",
+    "off"
+   ],
+   "help": "B1 fanout-one absorption (item 7). ON since v78. 'off' reproduces pre-v78 artifacts byte-for-byte -- and as of v87.1 it actually does: the gate was a truthiness test, and the string 'off' is truthy in Python, so the option had never turned absorption off. NOTE what you will see under the default route=auto: the B1 candidate is built and admitted only on a strict both-tables win, and on many circuits it improves T1 while regressing T2 (c432 0.707608 to 0.682924 on T1 but 0.732292 to 0.765204 on T2), so the gate rejects it and toggling this option changes nothing you can see. That is the gate working, not a dead flag. As of v88.1 the run says so -- look for the 'gate b1' line, or the 'gates' block in the JSON record. To see B1 act, force --route structural.",
+   "code_default": "exact"
+  },
+  "auto_e2": {
+   "default": true,
+   "legal": [
+    true,
+    false
+   ],
+   "help": "E2 shared multi-output BDD forest (item 14), CUDD-backed. ON by default in the release path. NOTE: the optimization-arm drivers deliberately price with this OFF and cross-check with a full-auto reprice -- that is a measurement convention internal to the arms, NOT a release default. Do not reconcile the two.",
+   "code_default": true
+  },
+  "e2_forest_ms": {
+   "default": 8000,
+   "legal": "integer milliseconds",
+   "help": "Wall-clock budget, in milliseconds, for building the shared multi-output BDD forest that the E2 candidate needs (see auto_e2). If the forest is not built within the budget the E2 candidate is skipped and the block is realised by the ordinary route -- a budget miss costs you a candidate, never correctness. This is WALL-CLOCK, so it can vary between runs on a loaded machine.",
+   "code_default": 8000
+  },
+  "auto_bdd": {
+   "default": false,
+   "legal": [
+    true,
+    false
+   ],
+   "help": "Per-block arbitration between a BDD/mux realisation and the default route: build both, price both, keep the cheaper. Ships opt-in and OFF, so no published number depends on it. Turning it on can only improve the priced result, at the cost of building a second candidate per block.",
+   "code_default": false
+  },
+  "dup_discount": {
+   "default": true,
+   "legal": [
+    true,
+    false
+   ],
+   "help": "Discount duplicated logic when pricing blocks.",
+   "code_default": true
+  },
+  "reconv": {
+   "default": false,
+   "legal": [
+    true,
+    false
+   ],
+   "help": "How reconvergent fanout is handled when pricing a block. When a signal reaches a block by more than one path, treating the paths as independent over-counts the switching; this option selects the treatment. EXPERIMENTAL -- no published number uses anything but the default, and changing it changes reported energy.",
+   "code_default": false
+  },
+  "charge_pi": {
+   "default": false,
+   "legal": [
+    true,
+    false
+   ],
+   "help": "Whether the energy account CHARGES for driving the primary inputs. OFF in every published table, and deliberately: the ASP-DAC baseline does not charge primary-input drive, so charging it on our side would make the comparison unfair to them. Turn it on for a standalone energy figure of a design whose inputs you must actually drive -- but a comparison run with it on is not comparable to the published numbers.",
+   "code_default": false
+  }
+ },
+ "buffer_insertion": {
+  "cap": {
+   "default": 6,
+   "legal": "integer >= 2",
+   "help": "Post-mapping realizability cap: the longest source-drain chain permitted in a finished gate. Longer chains are cut into segments, each materialised as its own restored dual-rail stage. The value also lives in the technology description; this option overrides it.",
+   "code_default": 6,
+   "suggested_28nm": 6,
+   "note": "v86 will make the insertion METHOD selectable and per-technology; today the method is naive segmentation. Item 29 will replace the constant with a process-justified interval. This value is load-bearing: at least one adopted optimization arm inverts under a different cap."
+  }
+ },
+ "optimization": {
+  "_note": "All re-synthesis passes are OFF by default. The release philosophy: a default run must not take inordinate runtime, and the user is told that better results are available at a runtime cost.",
+  "prefix": {
+   "default": false,
+   "legal": [
+    true,
+    false
+   ],
+   "help": "Parallel-prefix re-synthesis (M4b): detect carry-form chains, rebuild the longest as a Brent-Kung all-prefix network, re-window, and accept only if the whole compound move beats the input on BOTH energy tables."
+  },
+  "davio": {
+   "default": false,
+   "legal": [
+    true,
+    false
+   ],
+   "help": "Affine-cut (Davio) extraction. A cut whose Boolean difference d f/d x is the constant 1 for every variable it depends on is affine, and re-emits as an XOR tree over its leaves. The pass proposes a ladder of XOR-tree widths (2, 3, 4, 6, uncapped), each iterated to a fixpoint, and the both-tables gate picks the width -- no width is hard-coded. Recovers c499 exactly from c1355 (2576 -> 2192 devices, 1.579776 -> 1.086096 pJ) and improves c880; leaves c432, c499, dec and router untouched."
+  },
+  "davio_widths": {
+   "default": "2,3,4,6,uncapped",
+   "legal": "comma-separated integers >= 2, and/or the word 'uncapped'",
+   "help": "The XOR-tree width ladder the davio pass proposes. Every entry is priced and the both-tables gate selects among them, so adding entries can only cost runtime, never quality. Narrowing it to a single width is how you reproduce one arm of a sweep, not how you should run the tool."
+  },
+  "elim": {
+   "default": "none",
+   "legal": [
+    "none",
+    "single",
+    "both"
+   ],
+   "help": "Bounded ELIMINATION followed by algebraic extraction.  none (default) | single | both.  `single` runs elimination -- collapsing a node into its fanouts when that pays for itself in literal occurrences -- then single-cube division; `both` additionally attempts multi-cube kernel extraction with rectangle covering.  Named `elim` rather than `factor` from v89.2 because elimination is the half that moves the energy: on c880 the pass is accepted at 0.8725x T1 and 0.9722x T2 while the kernel extractions in that same run save three literal occurrences and move the priced numbers not at all.  `--factor` and the option key `factor` are still accepted.  Off by default; not enabled by --optimize-all.",
+   "aliases": [
+    "factor"
+   ],
+   "renamed_at": "v89.2"
+  },
+  "elim_min_gain": {
+   "default": 1,
+   "legal": "integer >= 0",
+   "help": "The extraction filter. A divisor cube of k literals used by m nodes costs k*m literal occurrences inline and k+m extracted, so it pays when (k-1)(m-1) > factor_min_gain. At the default of 1 that means three or more literals OR three or more readers; two-and-two, the textbook SIS case, is dead break-even here because this cost model bills literal occurrences at READERS rather than at gates, cubes or area. Exposed rather than hardcoded so that 'what if you extracted more aggressively' is an experiment instead of an argument. It is a FILTER, not the acceptance test: acceptance is unchanged -- equivalence against the original, then both-tables never-regress.",
+   "aliases": [
+    "factor_min_gain"
+   ],
+   "renamed_at": "v89.2"
+  },
+  "elim_value_limit": {
+   "default": 0,
+   "legal": "integer >= 0",
+   "help": "How much elimination is allowed to cost. A node is collapsed into its fanouts only when the literal occurrences the network spends afterwards exceed what it spends now by at most this much. At the default of 0 a collapse must pay for itself outright. Looser settings measured monotonically worse on both c432 and c880 -- more elimination, more series depth, worse T2 -- and are where the 2.33x two-level flattening penalty starts to reappear. Raising it does create the product structure kernels need, which is the one reason it is exposed at all.",
+   "aliases": [
+    "factor_value_limit"
+   ],
+   "renamed_at": "v89.2"
+  },
+  "pass_order": {
+   "default": "davio,factor,prefix,linwin,mowin",
+   "legal": "a comma-separated permutation of davio,factor,prefix,linwin,mowin",
+   "help": "Order the re-synthesis passes run in, independent of the order the flags were given. Every pass you ENABLE must be listed; a pass left out of the order could never run. Passes you leave off need not appear, so an order written before a later version added a pass keeps working. The default puts linwin before mowin because that is the 'composed' arm, the adopted best on eight of the twenty benchmark circuits. Before v87.1 the order was fixed at mowin-before-linwin and that arm could not be expressed at all."
+  },
+  "chain_idx": {
+   "default": 0,
+   "legal": "integer >= 0",
+   "help": "Which detected carry chain the prefix pass rebuilds, in detection order. 0 is the longest and is what every recorded result used. Exposed in v87.1 because it was reachable only from renesis_opt.py, which put one parameter of a best-case result outside the tool."
+  },
+  "bdec": {
+   "default": false,
+   "legal": [
+    true,
+    false
+   ],
+   "help": "Linear pre-filter (boundary decoder), v88. Re-encodes the OUTPUT space with an invertible GF(2) matrix B: the core computes h = B.f and a decoder network at the boundary computes f = B^-1.h. When rows of B combine outputs that share structure the core's shared BDD forest shrinks, and the decoder is cheap because weight-1 rows are free rail swaps in dual rail. Unlike the other four passes this one produces the FINAL MAPPING rather than a netlist, so it runs after the tag sweep and replaces the cover's result. EXPENSIVE: every candidate is priced through a full technology mapping. Use --wall-s and --price-cap."
+  },
+  "bdec_wmax": {
+   "default": 8,
+   "legal": "integer >= 1",
+   "help": "Maximum row weight permitted in BOTH B and its inverse. A light B with a heavy inverse is a cheap core and an expensive decoder, which is the trade this pass exists to avoid making by accident. 8 is the v79 search value."
+  },
+  "bdec_pool": {
+   "default": 24,
+   "legal": "integer >= 1",
+   "help": "Candidate row-add moves ranked and priced per round. The ranking estimator only ORDERS candidates; every accepted one has been priced through the full energy model, so a small pool costs reach, never correctness."
+  },
+  "bdec_rounds": {
+   "default": 40,
+   "legal": "integer >= 1",
+   "help": "Maximum hill-climbing rounds for the boundary-decoder search (see bdec). The search stops early when a round produces no candidate that prices better, so this is a ceiling on the worst case, not the number of rounds you should expect."
+  },
+  "linwin": {
+   "default": false,
+   "legal": [
+    true,
+    false
+   ],
+   "help": "Single-output interior affine windows. Picks a window inside ONE output cone and searches for an invertible linear re-encoding of its internal signals that reduces switching, then rewrites the cone through it. The circuit's function is unchanged and equivalence-checked; only the internal encoding moves. OFF by default -- it costs search time."
+  },
+  "mowin": {
+   "default": false,
+   "legal": [
+    true,
+    false
+   ],
+   "help": "Multi-output interior affine windows -- the same idea as linwin, but over a region whose leaves are SHARED by several outputs, so one re-encoding can pay off in more than one cone at once. Correspondingly more expensive to search. OFF by default."
+  },
+  "price_cap": {
+   "default": "800",
+   "legal": "integer >= 1, or a per-pass map such as linwin=40,mowin=30",
+   "help": "Candidates priced per optimization pass. Bounds search cost; a pass that hits the cap reports it (results are then a floor, not a fixpoint). v87.1: accepts a per-pass map -- 'linwin=40,mowin=30,prefix=800' -- because the recorded best cases used caps of 40, 60, 150, 400 and 800 across the twenty circuits and a single scalar cannot express them. A bare number still means the same value for every pass. Use '_' for the default in a map."
+  },
+  "passes": {
+   "default": "3",
+   "legal": "integer >= 1, or a per-pass map such as linwin=3,mowin=5",
+   "help": "How many times each enabled re-synthesis optimization is allowed to sweep the design. A second sweep can find work the first one exposed. Accepts a single number for all passes, or a per-pass map like 'davio=3,elim=1' -- the same form price_cap takes."
+  },
+  "chain_l_min": {
+   "default": 8,
+   "legal": "integer >= 2",
+   "help": "Minimum carry-chain length considered by the prefix pass. The chain census below this is free and reports 'no chains' as a result."
+  },
+  "overlap_guard": {
+   "default": true,
+   "legal": [
+    true,
+    false
+   ],
+   "help": "Refuse a window that overlaps material an earlier window in the same pass already rewrote. On by default: two rewrites of the same logic in one pass are priced independently, so the pass would bill a saving twice and the second rewrite would be reasoning about logic that no longer exists."
+  },
+  "emit_buffers": {
+   "default": true,
+   "type": "bool",
+   "help": "BUILD the pipeline buffer stages for the pipelined families (2LAL, S2LAL) rather than only pricing them.  ON by default from v89.3: the C emitter builds the identical chains and all fourteen pipelined parity cells compare byte-identical, so the reason it shipped off at v89.2 is discharged.  Through v89 the stages were charged as a flat buf_stages x buf_dev term with no structural expression, so the emitted netlist was not the priced one; now 2LAL's emission gap is ZERO on c432 (1574 = 1574).  S2LAL keeps a gap equal to its x2 static multiplier, which has no structural form.  This RAISES 2LAL/S2LAL energy about 22% on c432 -- a real chain costs more than the flat term charged, because the stages are themselves subject to cap_series.  That is a correction.  --no-emit-buffers restores the v89 behaviour for an A/B."
+  },
+  "no_emit_buffers": {
+   "default": false,
+   "type": "bool",
+   "help": "Restores the pre-v90 behaviour: the pipeline buffer stages that 2LAL and S2LAL need are PRICED by the energy model but not BUILT into the emitted netlist. Provided so an older result can be reproduced exactly; on a current run it makes the written netlist disagree with the device count you are billed for."
+  }
+ },
+ "verification": {
+  "equivalence_trials": {
+   "default": 1024,
+   "legal": "integer >= 64, or 'exhaustive' where 2^n is tractable",
+   "help": "How many random input vectors each candidate rewrite is checked against before it is allowed to replace the original logic. This is a Monte-Carlo check, not a proof: more trials lower the chance a wrong rewrite survives. Formal equivalence of the final result is a separate step outside the tool."
+  },
+  "equivalence_seed": {
+   "default": 13,
+   "legal": "integer",
+   "help": "Seed for the random vectors used to equivalence-check every candidate rewrite against the original netlist. Fixed so a run is reproducible; change it only if you want a different random sample of the input space. See equivalence_trials for how many vectors are drawn."
+  }
+ },
+ "budget": {
+  "wall_s": {
+   "default": null,
+   "legal": "seconds, or null for unbounded",
+   "help": "Wall-clock budget honoured by the KITS, not just the drivers (BUG-V80-02 fix). A pure cut: with no budget set, enumeration is identical to unbounded. When a budget is hit, the truncation is reported -- never silent."
+  }
+ },
+ "reporting": {
+  "family_for_pricing": {
+   "default": "tgate_sl6",
+   "legal": "any technology with a cell model",
+   "help": "The technology whose cell model PRICES the result, when that differs from the technology being mapped. Normally the same as the target and you should leave it alone; it exists so a network mapped for one family can be costed in another family's terms for a cross-technology comparison."
+  }
+ }
+}

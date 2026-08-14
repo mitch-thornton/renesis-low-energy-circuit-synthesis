@@ -1,0 +1,16 @@
+.model c17
+.inputs 1gat 2gat 3gat 6gat 7gat
+.outputs 22gat 23gat
+.names 1gat 3gat 10gat
+11 0
+.names 3gat 6gat 11gat
+11 0
+.names 2gat 11gat 16gat
+11 0
+.names 11gat 7gat 19gat
+11 0
+.names 10gat 16gat 22gat
+11 0
+.names 16gat 19gat 23gat
+11 0
+.end

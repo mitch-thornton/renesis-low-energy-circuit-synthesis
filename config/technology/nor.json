@@ -1,0 +1,11 @@
+{
+ "target_technology": "nor",
+ "role": "comparison_baseline",
+ "description": "NOR-gate netlist mapped structurally onto transmission gates -- the construction used by the reference adiabatic design flow we compare against.",
+ "note": "Not technically a mapping target: selecting it signals renesis to invoke map_nor_baseline rather than the family mapper. Provided so the comparison path is selectable through the same mechanism as a real target, per the owner's direction.",
+ "dispatch": "map_nor_baseline",
+ "mapper_kind": "baseline_nor",
+ "parameters": {
+  "family_for_pricing": "tgate"
+ }
+}

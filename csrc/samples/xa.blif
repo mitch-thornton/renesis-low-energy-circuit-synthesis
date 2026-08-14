@@ -1,0 +1,19 @@
+.model xa
+.inputs a b
+.outputs xr an
+.names a n_a
+0 1
+.names n_a b p0
+11 1
+.names b n_b
+0 1
+.names a n_b p1
+11 1
+.names a b p2
+11 1
+.names p0 p1 xr
+1- 1
+-1 1
+.names p2 an
+1 1
+.end

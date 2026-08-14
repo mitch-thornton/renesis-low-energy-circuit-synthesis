@@ -1,0 +1,220 @@
+{
+ "version": "v90.2",
+ "netlist": "csrc/samples/bdtoy2.v",
+ "technology": "tgate_sl6",
+ "cap": 6,
+ "options": {
+  "technology": "tgate_sl6",
+  "technology_dir": "config/technology",
+  "netprep": false,
+  "tag_trials": 4000,
+  "tag_seed": 1,
+  "k": 12,
+  "max_cuts": 32,
+  "cover_mode": "tech",
+  "k_ladder": "",
+  "k_ladder_s": 0,
+  "accept": "both",
+  "route": "auto",
+  "dev_weight": 0.0,
+  "depth_weight": 0.5,
+  "iload_weight": 5.0,
+  "area_weight": 1.0,
+  "absorb_fo1": "exact",
+  "auto_e2": true,
+  "e2_forest_ms": 8000,
+  "auto_bdd": false,
+  "dup_discount": true,
+  "reconv": false,
+  "charge_pi": false,
+  "cap": 6,
+  "prefix": false,
+  "davio": false,
+  "davio_widths": "2,3,4,6,uncapped",
+  "elim": "none",
+  "elim_min_gain": 1,
+  "elim_value_limit": 0,
+  "pass_order": "davio,factor,prefix,linwin,mowin",
+  "chain_idx": 0,
+  "bdec": true,
+  "bdec_wmax": 8,
+  "bdec_pool": 4,
+  "bdec_rounds": 2,
+  "linwin": false,
+  "mowin": false,
+  "price_cap": "800",
+  "passes": "3",
+  "chain_l_min": 8,
+  "overlap_guard": true,
+  "emit_buffers": true,
+  "no_emit_buffers": false,
+  "equivalence_trials": 1024,
+  "equivalence_seed": 13,
+  "wall_s": null,
+  "family_for_pricing": "tgate_sl6"
+ },
+ "non_default": {
+  "bdec": true,
+  "bdec_pool": 4,
+  "bdec_rounds": 2
+ },
+ "drive": {
+  "pi_drive": "uniform",
+  "alpha_convention": "explicit pair (p1, alpha)",
+  "alpha_default": "2*p1*(1-p1) (temporal independence)",
+  "drive_independent": true,
+  "drive_note": "p1=0.5 for every primary input, alpha at the independence point"
+ },
+ "stages": [
+  {
+   "stage": "bdec",
+   "accepts": 1,
+   "ratio": [
+    0.9393939393939393,
+    0.9393939393939393
+   ]
+  }
+ ],
+ "pass_reports": [
+  {
+   "pass_name": "bdec",
+   "m_outputs": 6,
+   "rounds": 2,
+   "priced": 7,
+   "accepts": 1,
+   "wmax": 8,
+   "pool": 4,
+   "search_ms": 2000,
+   "final_ms": 8000,
+   "moves": [
+    {
+     "move": [
+      0,
+      1
+     ],
+     "t1": 0.25506799999999996,
+     "t2": 0.25506799999999996
+    }
+   ],
+   "verdict": "ACCEPTED 1 move(s)",
+   "identity": [
+    0.271524,
+    0.271524
+   ],
+   "coverage": [
+    [
+     4,
+     30
+    ],
+    [
+     4,
+     30
+    ]
+   ],
+   "B": [
+    "3",
+    "2",
+    "4",
+    "8",
+    "10",
+    "20"
+   ],
+   "ratio": [
+    0.9393939393939393,
+    0.9393939393939393
+   ],
+   "final": [
+    0.25506799999999996,
+    0.25506799999999996
+   ],
+   "wall_s": 187.3,
+   "budget": "budget unbounded: complete (187.3s elapsed)"
+  }
+ ],
+ "gates": [
+  {
+   "candidate": "e2",
+   "built": true,
+   "accepted": true,
+   "e2": [
+    0.23861199999999994,
+    0.23861199999999994
+   ],
+   "incumbent": [
+    0.888624,
+    1.6291439999999993
+   ],
+   "reason": "accepted: strictly better capped, no worse uncapped"
+  },
+  {
+   "candidate": "e2",
+   "built": true,
+   "accepted": false,
+   "e2": [
+    0.23861199999999994,
+    0.23861199999999994
+   ],
+   "incumbent": [
+    0.23861199999999994,
+    0.23861199999999994
+   ],
+   "reason": "rejected: T1 0.238612 vs 0.238612, T2 0.238612 vs 0.238612"
+  },
+  {
+   "candidate": "e2",
+   "summary": true,
+   "shipped_before": [
+    0.888624,
+    1.6291439999999993
+   ],
+   "shipped_after": [
+    0.23861199999999994,
+    0.23861199999999994
+   ],
+   "changed": true
+  },
+  {
+   "candidate": "b1",
+   "built": true,
+   "accepted": false,
+   "with_b1": [
+    0.23861199999999994,
+    0.23861199999999994
+   ],
+   "without_b1": [
+    0.23861199999999994,
+    0.23861199999999994
+   ],
+   "reason": "rejected: T1 0.238612->0.238612, T2 0.238612->0.238612 -- no strict improvement"
+  }
+ ],
+ "net_activity": {
+  "computed": false,
+  "note": "pass --net-activity to measure it"
+ },
+ "result": {
+  "gates_in": 72,
+  "gates_after_resynth": 72,
+  "depth": 2,
+  "cap_inserted": 0,
+  "devices": 206,
+  "devices_capped": 206,
+  "devices_structural_capped": 206,
+  "devices_overhead_capped": 0,
+  "devices_overhead_cell_capped": 0,
+  "energy_cycle_pJ": 0.25506799999999996,
+  "energy_act_pJ": 0.13042186666666666,
+  "energy_cycle_pJ_capped": 0.25506799999999996,
+  "energy_act_pJ_capped": 0.13042186666666666,
+  "wall_s": 214.2
+ },
+ "checks": {
+  "mapped_roundtrip": {
+   "checked": true,
+   "instances": 206,
+   "phases": 4,
+   "rail_swaps": 10,
+   "trials": 16
+  }
+ }
+}

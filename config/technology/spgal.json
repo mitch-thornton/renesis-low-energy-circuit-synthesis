@@ -1,0 +1,23 @@
+{
+ "target_technology": "spgal",
+ "role": "mapping_target",
+ "description": "SPGAL (symmetric pass-gate adiabatic logic): T-gate dual-rail networks with symmetric, energy-balanced charging (DPA-resistant by design); the per-cycle convention is definitional here",
+ "note": "v89.8: overhead 2->4, self-load 1->2 per the published gate (Kumar/Thapliyal/Mohammad/Perumalla, Integration 58:369-377, 2017): cross-coupled PMOS M1/M2 + discharge pair M3/M4, two latch drains per rail; PFAL's convention for a 4-device latch. Owner-adjudicated 2026-08-09; clock_load stays 0 (M3/M4 are rail-driven).",
+ "mapper_kind": "dualrail_sp",
+ "parameters": {
+  "dual_rail": true,
+  "series_limit": 4,
+  "series_cap": 6,
+  "n_phases": 2,
+  "gate_overhead_dev": 4,
+  "out_self_load_dev": 2,
+  "clock_load_dev": 0,
+  "nonadiabatic_residue": 0.0,
+  "nmos_only": false,
+  "c_dev_ff": 1.7,
+  "c_out_ff": 3.4,
+  "r_on_ohm": 10000.0,
+  "v": 1.1
+ },
+ "mapper_family": "spgal"
+}

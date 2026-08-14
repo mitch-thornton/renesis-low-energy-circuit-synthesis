@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<!-- ---------------------------------------------------------------------------
+  revsynth.html -- browser front end for the reversible-synthesis pipeline
+  Renesis: energy-aware reversible / adiabatic logic synthesis
+
+  Served by revsynth_server.py; never opened as a file.  Uploads a
+  netlist, runs the reversible (MCT) synthesis path, and returns the
+  .real/.tfc outputs with the run log.
+
+  Author:      Mitchell A. Thornton
+  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
+  Modified:    2026-08-10  (Renesis v89.11)
+  Created:     Renesis v89.11 (this cut)
+--------------------------------------------------------------------------- -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>revsynth — reversible MCT synthesis</title>
+<style>
+  :root { --ink:#1a1a2e; --acc:#0f4c81; --ok:#1a7f37; --bad:#b42318; }
+  body { font-family: -apple-system, Helvetica, Arial, sans-serif; margin:0;
+         color:var(--ink); background:#f6f7f9; }
+  header { background:var(--acc); color:#fff; padding:14px 24px; }
+  header h1 { margin:0; font-size:20px; font-weight:600; }
+  header p { margin:2px 0 0; font-size:12px; opacity:.85; }
+  main { max-width:1100px; margin:18px auto; padding:0 16px; }
+  .card { background:#fff; border:1px solid #e3e6ea; border-radius:8px;
+          padding:16px 18px; margin-bottom:16px; }
+  .row { display:flex; gap:14px; flex-wrap:wrap; align-items:center; }
+  label { font-size:13px; font-weight:600; }
+  select, button { font-size:14px; padding:6px 10px; border-radius:6px;
+                   border:1px solid #c8cdd4; background:#fff; }
+  button.go { background:var(--acc); color:#fff; border:none; padding:8px 22px;
+              cursor:pointer; font-weight:600; }
+  button.go:disabled { opacity:.5; cursor:default; }
+  #drop { border:2px dashed #b9c0c9; border-radius:8px; padding:26px;
+          text-align:center; color:#666; cursor:pointer; }
+  #drop.hot { border-color:var(--acc); color:var(--acc); background:#eef4fa; }
+  table.stats { border-collapse:collapse; width:100%; font-size:13px; }
+  table.stats td { border-bottom:1px solid #eee; padding:5px 8px; }
+  table.stats td:first-child { font-weight:600; width:42%; }
+  .mono { font-family:ui-monospace, Menlo, monospace; }
+  .minimal { color:var(--ok); font-weight:700; }
+  .err { color:var(--bad); white-space:pre-wrap; font-family:ui-monospace,monospace;
+         font-size:12px; }
+  .svgpage { overflow-x:auto; border:1px solid #eee; border-radius:6px;
+             margin:10px 0; background:#fff; }
+  .svgpage svg { max-width:none; height:auto; }
+  pre.netlist { max-height:280px; overflow:auto; background:#0f172a; color:#d7e2f0;
+                padding:12px; border-radius:6px; font-size:12px; }
+  a.dl { display:inline-block; margin:4px 10px 4px 0; color:var(--acc);
+         font-weight:600; text-decoration:none; }
+  .spin { display:none; margin-left:10px; font-size:13px; color:var(--acc); }
+</style>
+</head>
+<body>
+<header>
+  <h1>revsynth</h1>
+  <p>irreversible netlist in (.v / .isc / .pla / .aig / .aag) &nbsp;&rarr;&nbsp;
+     verified reversible MCT circuit out &mdash; runs entirely on this machine</p>
+</header>
+<main>
+  <div class="card">
+    <div id="drop">drop a circuit file here, or click to choose
+      <input type="file" id="file" hidden></div>
+    <div class="row" style="margin-top:12px">
+      <label>mode
+        <select id="mode">
+          <option value="auto" selected>auto (best route)</option>
+          <option value="minimal">minimal (affine only)</option>
+          <option value="bennett">bennett</option>
+          <option value="clean">clean (uncompute ancilla)</option>
+          <option value="live">live (line reuse, pebbling-lite)</option>
+          <option value="segment">segment (intra-cone, auto-tuned)</option>
+          <option value="hybridseg">hybridseg (covering + segment, best of both)</option>
+          <option value="abc">abc (external LUT cover + our scheduler)</option>
+          <option value="hybrid">hybrid (certified LUT covering)</option>
+          <option value="esop">esop (minimal-width single-target)</option>
+        </select></label>
+      <label>output format
+        <select id="fmt">
+          <option value="real" selected>.real (RevLib)</option>
+          <option value="tfc">.tfc</option>
+        </select></label>
+      <label>recomputation dial
+        <input type="range" id="recompute" min="0" max="5" value="0"
+               style="vertical-align:middle;width:130px"
+               oninput="document.getElementById('rcval').textContent=this.value">
+        <span id="rcval" class="mono">0</span></label>
+      <button class="go" id="go" disabled>Synthesize</button>
+      <span class="spin" id="spin">running&hellip;</span>
+    </div>
+    <div id="err" class="err"></div>
+  </div>
+
+  <div class="card" style="padding:10px 18px;font-size:12px;color:#555">
+    <b>recomputation dial = 0</b> keeps the pure information-theoretic path: every
+    value computed once, certified routes and widths untouched. Raising it splits
+    the outputs into 2<sup>R</sup> independently computed and uncomputed groups,
+    trading gate count for width.
+  </div>
+  <div class="card" id="statcard" style="display:none">
+    <h3 style="margin-top:0">statistics</h3>
+    <table class="stats" id="stats"></table>
+    <div style="margin-top:10px">
+      <a class="dl" id="dl_net" download>download netlist</a>
+      <a class="dl" id="dl_pdf" download>download PDF report</a>
+    </div>
+  </div>
+
+  <div class="card" id="ckt" style="display:none">
+    <h3 style="margin-top:0">circuit</h3>
+    <div id="pages"></div>
+  </div>
+
+  <div class="card" id="netcard" style="display:none">
+    <h3 style="margin-top:0">netlist</h3>
+    <pre class="netlist" id="nettext"></pre>
+  </div>
+</main>
+<script>
+if (location.protocol === 'file:') {
+  document.body.innerHTML = '<div style="max-width:640px;margin:80px auto;' +
+    'font-family:-apple-system,Helvetica,sans-serif;line-height:1.5">' +
+    '<h2>This page must be served, not opened as a file.</h2>' +
+    '<p>Requests from a <code>file://</code> page cannot reach the local ' +
+    'synthesis server, which causes Safari\u2019s \u201cTypeError: Load ' +
+    'failed\u201d.</p><p>Run<br><code>python3 scripts/revsynth_server.py' +
+    '</code><br>and open <a href="http://localhost:8765">' +
+    'http://localhost:8765</a> instead.</p></div>';
+  throw new Error('opened via file://');
+}
+let fileData = null, fileName = null;
+const drop = document.getElementById('drop'), fi = document.getElementById('file');
+drop.onclick = () => fi.click();
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('hot'); };
+drop.ondragleave = () => drop.classList.remove('hot');
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove('hot');
+                     if (e.dataTransfer.files[0]) take(e.dataTransfer.files[0]); };
+fi.onchange = () => { if (fi.files[0]) take(fi.files[0]); };
+function take(f) {
+  fileName = f.name;
+  const r = new FileReader();
+  r.onload = () => { fileData = r.result.split(',')[1];
+                     drop.textContent = 'ready: ' + f.name;
+                     document.getElementById('go').disabled = false; };
+  r.readAsDataURL(f);
+}
+document.getElementById('go').onclick = async () => {
+  const go = document.getElementById('go'), spin = document.getElementById('spin');
+  go.disabled = true; spin.style.display = 'inline';
+  document.getElementById('err').textContent = '';
+  try {
+    const resp = await fetch('/synth', { method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ filename:fileName, content_b64:fileData,
+        mode:document.getElementById('mode').value,
+        out_format:document.getElementById('fmt').value,
+        recompute:parseInt(document.getElementById('recompute').value,10) })});
+    const start = await resp.json();
+    if (!start.job) {
+      document.getElementById('err').textContent = start.error || 'no job id';
+      return;
+    }
+    let j = null;
+    for (let tick = 0; ; tick++) {
+      await new Promise(r => setTimeout(r, 1500));
+      const rr = await fetch('/result?job=' + start.job);
+      j = await rr.json();
+      if (j.state === 'running') {
+        spin.textContent = 'running\u2026 ' + Math.round(tick * 1.5) + 's';
+        continue;
+      }
+      break;
+    }
+    if (j.state === 'error') {
+      document.getElementById('err').textContent = j.error; return;
+    }
+    if (!j.ok) { document.getElementById('err').textContent = j.error || 'failed'; return; }
+    const st = document.getElementById('stats'); st.innerHTML = '';
+    for (const [k,v] of Object.entries(j.stats)) {
+      const tr = document.createElement('tr');
+      const td1 = document.createElement('td'); td1.textContent = k;
+      const td2 = document.createElement('td'); td2.textContent = v;
+      td2.classList.add('mono');
+      if (String(v).includes('MINIMAL')) td2.classList.add('minimal');
+      tr.append(td1, td2); st.append(tr);
+    }
+    document.getElementById('statcard').style.display = '';
+    const nb = new Blob([j.netlist_text], {type:'text/plain'});
+    const dn = document.getElementById('dl_net');
+    dn.href = URL.createObjectURL(nb); dn.download = j.netlist_name;
+    dn.textContent = 'download ' + j.netlist_name;
+    const pb = Uint8Array.from(atob(j.pdf_b64), c => c.charCodeAt(0));
+    const dp = document.getElementById('dl_pdf');
+    dp.href = URL.createObjectURL(new Blob([pb], {type:'application/pdf'}));
+    dp.download = j.pdf_name; dp.textContent = 'download ' + j.pdf_name;
+    const pages = document.getElementById('pages'); pages.innerHTML = '';
+    for (const svg of j.svgs) {
+      const d = document.createElement('div');
+      d.className = 'svgpage'; d.innerHTML = svg; pages.append(d);
+    }
+    document.getElementById('ckt').style.display = '';
+    document.getElementById('nettext').textContent =
+      j.netlist_text.length > 20000 ?
+      j.netlist_text.slice(0, 20000) + '\n... (truncated; use download)' :
+      j.netlist_text;
+    document.getElementById('netcard').style.display = '';
+  } catch (e) {
+    document.getElementById('err').textContent = String(e);
+  } finally { go.disabled = false; spin.style.display = 'none'; }
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+* c17  ISCAS-85
+1     1gat   inpt   2   0   >sa1
+2     2gat   inpt   2   0   >sa1
+3     3gat   inpt   3   0   >sa1
+6     6gat   inpt   2   0   >sa1
+7     7gat   inpt   2   0   >sa1
+10    10gat  nand   2   2   >sa1
+      1      3
+11    11gat  nand   2   2   >sa1
+      3      6
+16    16gat  nand   2   2   >sa1
+      2      11
+19    19gat  nand   2   2   >sa1
+      11     7
+22    22gat  nand   1   2   >sa1
+      10     16
+23    23gat  nand   1   2   >sa1
+      16     19

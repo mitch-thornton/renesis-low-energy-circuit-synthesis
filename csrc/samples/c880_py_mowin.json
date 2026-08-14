@@ -1,0 +1,476 @@
+{
+ "version": "v90.5",
+ "netlist": "bench/c880.v",
+ "technology": "tgate_sl6",
+ "cap": 6,
+ "options": {
+  "technology": "tgate_sl6",
+  "technology_dir": "config/technology",
+  "netprep": false,
+  "tag_trials": 4000,
+  "tag_seed": 1,
+  "k": 12,
+  "max_cuts": 32,
+  "cover_mode": "tech",
+  "k_ladder": "",
+  "k_ladder_s": 0,
+  "accept": "both",
+  "route": "auto",
+  "dev_weight": 0.0,
+  "depth_weight": 0.5,
+  "iload_weight": 5.0,
+  "area_weight": 1.0,
+  "absorb_fo1": "exact",
+  "auto_e2": true,
+  "e2_forest_ms": 8000,
+  "auto_bdd": false,
+  "dup_discount": true,
+  "reconv": false,
+  "charge_pi": false,
+  "cap": 6,
+  "prefix": false,
+  "davio": false,
+  "davio_widths": "2,3,4,6,uncapped",
+  "elim": "none",
+  "elim_min_gain": 1,
+  "elim_value_limit": 0,
+  "pass_order": "davio,factor,prefix,linwin,mowin",
+  "chain_idx": 0,
+  "bdec": false,
+  "bdec_wmax": 8,
+  "bdec_pool": 24,
+  "bdec_rounds": 40,
+  "linwin": false,
+  "mowin": true,
+  "price_cap": "800",
+  "passes": "3",
+  "chain_l_min": 8,
+  "overlap_guard": true,
+  "emit_buffers": true,
+  "no_emit_buffers": false,
+  "equivalence_trials": 1024,
+  "equivalence_seed": 13,
+  "wall_s": null,
+  "family_for_pricing": "tgate_sl6"
+ },
+ "non_default": {
+  "mowin": true
+ },
+ "drive": {
+  "pi_drive": "uniform",
+  "alpha_convention": "explicit pair (p1, alpha)",
+  "alpha_default": "2*p1*(1-p1) (temporal independence)",
+  "drive_independent": true,
+  "drive_note": "p1=0.5 for every primary input, alpha at the independence point"
+ },
+ "stages": [
+  {
+   "stage": "resynthesis",
+   "changed": true,
+   "ratio": [
+    0.9803921568627447,
+    0.9791666666666665
+   ]
+  }
+ ],
+ "pass_reports": [
+  {
+   "pass_name": "mowin",
+   "priced": 800,
+   "accepts": 7,
+   "skipped_overlap": 126,
+   "near_misses": [
+    {
+     "window": 9006,
+     "root": [
+      "N786"
+     ],
+     "t1": 0.8392559999999989,
+     "t2": 0.8783389999999995,
+     "d_t1": 0.0,
+     "d_t2": 0.0,
+     "worst": 0.0
+    },
+    {
+     "window": 9007,
+     "root": [
+      "N802"
+     ],
+     "t1": 0.8392559999999989,
+     "t2": 0.8783389999999994,
+     "d_t1": 0.0,
+     "d_t2": -0.0,
+     "worst": 0.0
+    },
+    {
+     "window": 9008,
+     "root": [
+      "N803"
+     ],
+     "t1": 0.8392559999999989,
+     "t2": 0.8783389999999995,
+     "d_t1": 0.0,
+     "d_t2": 0.0,
+     "worst": 0.0
+    },
+    {
+     "window": 9009,
+     "root": [
+      "N804"
+     ],
+     "t1": 0.8392559999999989,
+     "t2": 0.8783389999999995,
+     "d_t1": 0.0,
+     "d_t2": 0.0,
+     "worst": 0.0
+    },
+    {
+     "window": 9010,
+     "root": [
+      "N825"
+     ],
+     "t1": 0.8392559999999989,
+     "t2": 0.8783389999999994,
+     "d_t1": 0.0,
+     "d_t2": -0.0,
+     "worst": 0.0
+    },
+    {
+     "window": 9011,
+     "root": [
+      "N842"
+     ],
+     "t1": 0.8392559999999989,
+     "t2": 0.8783389999999994,
+     "d_t1": 0.0,
+     "d_t2": -0.0,
+     "worst": 0.0
+    },
+    {
+     "window": 9012,
+     "root": [
+      "N843"
+     ],
+     "t1": 0.8392559999999989,
+     "t2": 0.8783389999999994,
+     "d_t1": 0.0,
+     "d_t2": -0.0,
+     "worst": 0.0
+    },
+    {
+     "window": 9013,
+     "root": [
+      "N844"
+     ],
+     "t1": 0.8392559999999989,
+     "t2": 0.8783389999999994,
+     "d_t1": 0.0,
+     "d_t2": -0.0,
+     "worst": 0.0
+    },
+    {
+     "window": 9063,
+     "root": [
+      "N808"
+     ],
+     "t1": 0.8392559999999989,
+     "t2": 0.8783389999999994,
+     "d_t1": 0.0,
+     "d_t2": -0.0,
+     "worst": 0.0
+    },
+    {
+     "window": 9066,
+     "root": [
+      "N836"
+     ],
+     "t1": 0.8392559999999989,
+     "t2": 0.8783389999999994,
+     "d_t1": 0.0,
+     "d_t2": -0.0,
+     "worst": 0.0
+    },
+    {
+     "window": 9067,
+     "root": [
+      "N851"
+     ],
+     "t1": 0.8392559999999989,
+     "t2": 0.8783389999999994,
+     "d_t1": 0.0,
+     "d_t2": -0.0,
+     "worst": 0.0
+    },
+    {
+     "window": 9068,
+     "root": [
+      "N852"
+     ],
+     "t1": 0.8392559999999989,
+     "t2": 0.8783389999999994,
+     "d_t1": 0.0,
+     "d_t2": -0.0,
+     "worst": 0.0
+    }
+   ],
+   "overlap_guard": true,
+   "base": [
+    0.8392559999999989,
+    0.8886239999999996
+   ],
+   "ratio": [
+    0.9803921568627447,
+    0.9791666666666665
+   ],
+   "wall_s": 2160.8,
+   "budget": "budget unbounded: complete (2163.1s elapsed)",
+   "verdict": "ACCEPTED",
+   "price_cap": 800,
+   "passes": 3
+  }
+ ],
+ "optimization": {
+  "passes": [
+   {
+    "pass_name": "mowin",
+    "priced": 800,
+    "accepts": 7,
+    "skipped_overlap": 126,
+    "near_misses": [
+     {
+      "window": 9006,
+      "root": [
+       "N786"
+      ],
+      "t1": 0.8392559999999989,
+      "t2": 0.8783389999999995,
+      "d_t1": 0.0,
+      "d_t2": 0.0,
+      "worst": 0.0
+     },
+     {
+      "window": 9007,
+      "root": [
+       "N802"
+      ],
+      "t1": 0.8392559999999989,
+      "t2": 0.8783389999999994,
+      "d_t1": 0.0,
+      "d_t2": -0.0,
+      "worst": 0.0
+     },
+     {
+      "window": 9008,
+      "root": [
+       "N803"
+      ],
+      "t1": 0.8392559999999989,
+      "t2": 0.8783389999999995,
+      "d_t1": 0.0,
+      "d_t2": 0.0,
+      "worst": 0.0
+     },
+     {
+      "window": 9009,
+      "root": [
+       "N804"
+      ],
+      "t1": 0.8392559999999989,
+      "t2": 0.8783389999999995,
+      "d_t1": 0.0,
+      "d_t2": 0.0,
+      "worst": 0.0
+     },
+     {
+      "window": 9010,
+      "root": [
+       "N825"
+      ],
+      "t1": 0.8392559999999989,
+      "t2": 0.8783389999999994,
+      "d_t1": 0.0,
+      "d_t2": -0.0,
+      "worst": 0.0
+     },
+     {
+      "window": 9011,
+      "root": [
+       "N842"
+      ],
+      "t1": 0.8392559999999989,
+      "t2": 0.8783389999999994,
+      "d_t1": 0.0,
+      "d_t2": -0.0,
+      "worst": 0.0
+     },
+     {
+      "window": 9012,
+      "root": [
+       "N843"
+      ],
+      "t1": 0.8392559999999989,
+      "t2": 0.8783389999999994,
+      "d_t1": 0.0,
+      "d_t2": -0.0,
+      "worst": 0.0
+     },
+     {
+      "window": 9013,
+      "root": [
+       "N844"
+      ],
+      "t1": 0.8392559999999989,
+      "t2": 0.8783389999999994,
+      "d_t1": 0.0,
+      "d_t2": -0.0,
+      "worst": 0.0
+     },
+     {
+      "window": 9063,
+      "root": [
+       "N808"
+      ],
+      "t1": 0.8392559999999989,
+      "t2": 0.8783389999999994,
+      "d_t1": 0.0,
+      "d_t2": -0.0,
+      "worst": 0.0
+     },
+     {
+      "window": 9066,
+      "root": [
+       "N836"
+      ],
+      "t1": 0.8392559999999989,
+      "t2": 0.8783389999999994,
+      "d_t1": 0.0,
+      "d_t2": -0.0,
+      "worst": 0.0
+     },
+     {
+      "window": 9067,
+      "root": [
+       "N851"
+      ],
+      "t1": 0.8392559999999989,
+      "t2": 0.8783389999999994,
+      "d_t1": 0.0,
+      "d_t2": -0.0,
+      "worst": 0.0
+     },
+     {
+      "window": 9068,
+      "root": [
+       "N852"
+      ],
+      "t1": 0.8392559999999989,
+      "t2": 0.8783389999999994,
+      "d_t1": 0.0,
+      "d_t2": -0.0,
+      "worst": 0.0
+     }
+    ],
+    "overlap_guard": true,
+    "base": [
+     0.8392559999999989,
+     0.8886239999999996
+    ],
+    "ratio": [
+     0.9803921568627447,
+     0.9791666666666665
+    ],
+    "wall_s": 2160.8,
+    "budget": "budget unbounded: complete (2163.1s elapsed)",
+    "verdict": "ACCEPTED",
+    "price_cap": 800,
+    "passes": 3
+   }
+  ],
+  "base": [
+   0.8392559999999989,
+   0.8886239999999996
+  ],
+  "final": [
+   0.8227999999999986,
+   0.8701109999999995
+  ],
+  "ratio": [
+   0.9803921568627447,
+   0.9791666666666665
+  ],
+  "changed": true,
+  "budget": "budget unbounded: complete (2165.5s elapsed)"
+ },
+ "gates": [
+  {
+   "candidate": "e2",
+   "built": true,
+   "accepted": false,
+   "e2": [
+    85.43955199999003,
+    85.43955199999003
+   ],
+   "incumbent": [
+    0.8227999999999986,
+    0.8701109999999995
+   ],
+   "reason": "rejected: T1 85.4396 vs 0.8228, T2 85.4396 vs 0.870111"
+  },
+  {
+   "candidate": "e2",
+   "summary": true,
+   "shipped_before": [
+    0.8227999999999986,
+    0.8701109999999995
+   ],
+   "shipped_after": [
+    0.8227999999999986,
+    0.8701109999999995
+   ],
+   "changed": false
+  },
+  {
+   "candidate": "b1",
+   "built": true,
+   "accepted": false,
+   "with_b1": [
+    0.7240639999999994,
+    0.9359349999999993
+   ],
+   "without_b1": [
+    0.8227999999999986,
+    0.8701109999999995
+   ],
+   "reason": "rejected: T1 0.8228->0.724064, T2 0.870111->0.935935 -- regresses a reported table"
+  }
+ ],
+ "net_activity": {
+  "computed": false,
+  "note": "pass --net-activity to measure it"
+ },
+ "result": {
+  "gates_in": 323,
+  "gates_after_resynth": 280,
+  "depth": 9,
+  "cap_inserted": 11,
+  "devices": 1264,
+  "devices_capped": 1388,
+  "devices_structural_capped": 1388,
+  "devices_overhead_capped": 0,
+  "devices_overhead_cell_capped": 0,
+  "energy_cycle_pJ": 0.8227999999999986,
+  "energy_act_pJ": 0.28544706666666686,
+  "energy_cycle_pJ_capped": 0.8701109999999995,
+  "energy_act_pJ_capped": 0.3017014000000001,
+  "wall_s": 2173.7
+ },
+ "checks": {
+  "mapped_roundtrip": {
+   "checked": true,
+   "instances": 1388,
+   "phases": 4,
+   "rail_swaps": 0,
+   "trials": 16
+  }
+ }
+}

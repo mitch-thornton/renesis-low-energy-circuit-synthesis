@@ -1,0 +1,24 @@
+{
+ "target_technology": "2lal",
+ "role": "mapping_target",
+ "description": "2LAL (two-level adiabatic logic, Frank): CMOS T-gate pass logic, dual-rail, 4-phase trapezoidal clocks, fully adiabatic (no threshold drop); signals are PIPELINED -- a consumer more than one level downstream needs explicit buffer stages, and outputs are phase-aligned to the final level",
+ "note": "",
+ "mapper_kind": "dualrail_sp",
+ "parameters": {
+  "dual_rail": true,
+  "series_limit": 4,
+  "series_cap": 6,
+  "n_phases": 4,
+  "gate_overhead_dev": 0,
+  "out_self_load_dev": 0,
+  "nonadiabatic_residue": 0.0,
+  "pipelined": true,
+  "buf_dev": 2,
+  "static_mult": 1,
+  "c_dev_ff": 1.7,
+  "c_out_ff": 3.4,
+  "r_on_ohm": 10000.0,
+  "v": 1.1
+ },
+ "mapper_family": "2lal"
+}

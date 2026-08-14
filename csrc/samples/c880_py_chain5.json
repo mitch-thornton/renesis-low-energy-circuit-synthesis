@@ -1,0 +1,716 @@
+{
+ "version": "v90.5",
+ "netlist": "bench/c880.v",
+ "technology": "tgate_sl6",
+ "cap": 6,
+ "options": {
+  "technology": "tgate_sl6",
+  "technology_dir": "config/technology",
+  "netprep": false,
+  "tag_trials": 4000,
+  "tag_seed": 1,
+  "k": 12,
+  "max_cuts": 32,
+  "cover_mode": "tech",
+  "k_ladder": "",
+  "k_ladder_s": 0,
+  "accept": "both",
+  "route": "auto",
+  "dev_weight": 0.0,
+  "depth_weight": 0.5,
+  "iload_weight": 5.0,
+  "area_weight": 1.0,
+  "absorb_fo1": "exact",
+  "auto_e2": true,
+  "e2_forest_ms": 8000,
+  "auto_bdd": false,
+  "dup_discount": true,
+  "reconv": false,
+  "charge_pi": false,
+  "cap": 6,
+  "prefix": true,
+  "davio": true,
+  "davio_widths": "2,3,4,6,uncapped",
+  "elim": "single",
+  "elim_min_gain": 1,
+  "elim_value_limit": 0,
+  "pass_order": "davio,factor,prefix,linwin,mowin",
+  "chain_idx": 0,
+  "bdec": false,
+  "bdec_wmax": 8,
+  "bdec_pool": 24,
+  "bdec_rounds": 40,
+  "linwin": true,
+  "mowin": true,
+  "price_cap": "800",
+  "passes": "3",
+  "chain_l_min": 8,
+  "overlap_guard": true,
+  "emit_buffers": true,
+  "no_emit_buffers": false,
+  "equivalence_trials": 1024,
+  "equivalence_seed": 13,
+  "wall_s": null,
+  "family_for_pricing": "tgate_sl6"
+ },
+ "non_default": {
+  "prefix": true,
+  "davio": true,
+  "elim": "single",
+  "linwin": true,
+  "mowin": true
+ },
+ "drive": {
+  "pi_drive": "uniform",
+  "alpha_convention": "explicit pair (p1, alpha)",
+  "alpha_default": "2*p1*(1-p1) (temporal independence)",
+  "drive_independent": true,
+  "drive_note": "p1=0.5 for every primary input, alpha at the independence point"
+ },
+ "stages": [
+  {
+   "stage": "resynthesis",
+   "changed": true,
+   "ratio": [
+    0.9754901960784311,
+    0.9675925925925921
+   ]
+  }
+ ],
+ "pass_reports": [
+  {
+   "pass_name": "davio",
+   "priced": 5,
+   "accepts": 1,
+   "widths_tried": 5,
+   "base": [
+    0.8392559999999989,
+    0.8886239999999996
+   ],
+   "width_selected": 2,
+   "gates_in": 323,
+   "gates_out": 257,
+   "ratio": [
+    0.9754901960784311,
+    0.9675925925925921
+   ],
+   "wall_s": 21.1,
+   "budget": "budget unbounded: complete (23.3s elapsed)",
+   "verdict": "ACCEPTED width 2"
+  },
+  {
+   "pass_name": "elim",
+   "mode": "single",
+   "accepts": 0,
+   "priced": 1,
+   "base": [
+    0.8186859999999987,
+    0.8598259999999992
+   ],
+   "detail": {
+    "pass_name": "kernel",
+    "mode": "single",
+    "eliminated": 20,
+    "elimination_truncated": false,
+    "gates_in": 257,
+    "extractions": 1,
+    "rounds": 2,
+    "saving": 1,
+    "opaque": 27,
+    "gates_out": 250,
+    "nodes": 211,
+    "wall_s": 0.0
+   },
+   "gates_in": 257,
+   "gates_out": 257,
+   "ratio": [
+    1.0,
+    1.0
+   ],
+   "wall_s": 3.7,
+   "budget": "budget unbounded: complete (27.0s elapsed)",
+   "verdict": "no factored form improved both tables"
+  },
+  {
+   "pass_name": "prefix",
+   "l_min": 8,
+   "chains": 2,
+   "priced": 800,
+   "accepts": 2,
+   "skipped_overlap": 109,
+   "skipped_stale": 0,
+   "overlap_guard": true,
+   "verdict": "rejected: compound 1.2060/1.1627 does not beat the input on both tables",
+   "base": [
+    0.8186859999999987,
+    0.8598259999999992
+   ],
+   "chain_k": 15,
+   "treeified": [
+    1.2110552763819094,
+    1.1698564593301433
+   ],
+   "compound": [
+    1.2060301507537685,
+    1.1626794258373203
+   ],
+   "wall_s": 2035.1,
+   "budget": "budget unbounded: complete (2062.1s elapsed)",
+   "ratio": [
+    1.0,
+    1.0
+   ],
+   "price_cap": 800,
+   "passes": 3
+  },
+  {
+   "pass_name": "linwin",
+   "priced": 0,
+   "accepts": 0,
+   "skipped_overlap": 0,
+   "near_misses": [],
+   "overlap_guard": true,
+   "base": [
+    0.8186859999999987,
+    0.8598259999999992
+   ],
+   "ratio": [
+    1.0,
+    1.0
+   ],
+   "wall_s": 2.1,
+   "budget": "budget unbounded: complete (2064.3s elapsed)",
+   "verdict": "no accepted windows",
+   "price_cap": 800,
+   "passes": 3
+  },
+  {
+   "pass_name": "mowin",
+   "priced": 419,
+   "accepts": 0,
+   "skipped_overlap": 0,
+   "near_misses": [
+    {
+     "window": 9066,
+     "root": [
+      "N298",
+      "N450"
+     ],
+     "t1": 0.8186859999999987,
+     "t2": 0.8598259999999992,
+     "d_t1": 0.0,
+     "d_t2": 0.0,
+     "worst": 0.0
+    },
+    {
+     "window": 9087,
+     "root": [
+      "N350",
+      "N449"
+     ],
+     "t1": 0.8186859999999987,
+     "t2": 0.8598259999999992,
+     "d_t1": 0.0,
+     "d_t2": 0.0,
+     "worst": 0.0
+    },
+    {
+     "window": 9233,
+     "root": [
+      "N280",
+      "N448"
+     ],
+     "t1": 0.8186859999999987,
+     "t2": 0.8598259999999992,
+     "d_t1": 0.0,
+     "d_t2": 0.0,
+     "worst": 0.0
+    },
+    {
+     "window": 9355,
+     "root": [
+      "N442",
+      "N447"
+     ],
+     "t1": 0.8186859999999987,
+     "t2": 0.8598259999999992,
+     "d_t1": 0.0,
+     "d_t2": 0.0,
+     "worst": 0.0
+    },
+    {
+     "window": 9418,
+     "root": [
+      "N280",
+      "N350"
+     ],
+     "t1": 0.8186859999999987,
+     "t2": 0.8598259999999992,
+     "d_t1": 0.0,
+     "d_t2": 0.0,
+     "worst": 0.0
+    },
+    {
+     "window": 9126,
+     "root": [
+      "N390",
+      "N446"
+     ],
+     "t1": 0.8227999999999986,
+     "t2": 0.8639399999999992,
+     "d_t1": 0.005025126,
+     "d_t2": 0.004784689,
+     "worst": 0.005025126
+    },
+    {
+     "window": 9306,
+     "root": [
+      "N287",
+      "N488"
+     ],
+     "t1": 0.8227999999999986,
+     "t2": 0.8639399999999993,
+     "d_t1": 0.005025126,
+     "d_t2": 0.004784689,
+     "worst": 0.005025126
+    },
+    {
+     "window": 9124,
+     "root": [
+      "N727",
+      "N805"
+     ],
+     "t1": 0.8186859999999987,
+     "t2": 0.8659969999999991,
+     "d_t1": 0.0,
+     "d_t2": 0.007177033,
+     "worst": 0.007177033
+    },
+    {
+     "window": 9329,
+     "root": [
+      "N400",
+      "N522"
+     ],
+     "t1": 0.8227999999999986,
+     "t2": 0.8659969999999991,
+     "d_t1": 0.005025126,
+     "d_t2": 0.007177033,
+     "worst": 0.007177033
+    },
+    {
+     "window": 9330,
+     "root": [
+      "N400",
+      "N523"
+     ],
+     "t1": 0.8227999999999986,
+     "t2": 0.8659969999999991,
+     "d_t1": 0.005025126,
+     "d_t2": 0.007177033,
+     "worst": 0.007177033
+    },
+    {
+     "window": 9331,
+     "root": [
+      "N400",
+      "N524"
+     ],
+     "t1": 0.8227999999999986,
+     "t2": 0.8659969999999991,
+     "d_t1": 0.005025126,
+     "d_t2": 0.007177033,
+     "worst": 0.007177033
+    },
+    {
+     "window": 9332,
+     "root": [
+      "N400",
+      "N525"
+     ],
+     "t1": 0.8227999999999986,
+     "t2": 0.8659969999999991,
+     "d_t1": 0.005025126,
+     "d_t2": 0.007177033,
+     "worst": 0.007177033
+    }
+   ],
+   "overlap_guard": true,
+   "base": [
+    0.8186859999999987,
+    0.8598259999999992
+   ],
+   "ratio": [
+    1.0,
+    1.0
+   ],
+   "wall_s": 958.8,
+   "budget": "budget unbounded: complete (3023.1s elapsed)",
+   "verdict": "no accepted windows",
+   "price_cap": 800,
+   "passes": 3
+  }
+ ],
+ "optimization": {
+  "passes": [
+   {
+    "pass_name": "davio",
+    "priced": 5,
+    "accepts": 1,
+    "widths_tried": 5,
+    "base": [
+     0.8392559999999989,
+     0.8886239999999996
+    ],
+    "width_selected": 2,
+    "gates_in": 323,
+    "gates_out": 257,
+    "ratio": [
+     0.9754901960784311,
+     0.9675925925925921
+    ],
+    "wall_s": 21.1,
+    "budget": "budget unbounded: complete (23.3s elapsed)",
+    "verdict": "ACCEPTED width 2"
+   },
+   {
+    "pass_name": "elim",
+    "mode": "single",
+    "accepts": 0,
+    "priced": 1,
+    "base": [
+     0.8186859999999987,
+     0.8598259999999992
+    ],
+    "detail": {
+     "pass_name": "kernel",
+     "mode": "single",
+     "eliminated": 20,
+     "elimination_truncated": false,
+     "gates_in": 257,
+     "extractions": 1,
+     "rounds": 2,
+     "saving": 1,
+     "opaque": 27,
+     "gates_out": 250,
+     "nodes": 211,
+     "wall_s": 0.0
+    },
+    "gates_in": 257,
+    "gates_out": 257,
+    "ratio": [
+     1.0,
+     1.0
+    ],
+    "wall_s": 3.7,
+    "budget": "budget unbounded: complete (27.0s elapsed)",
+    "verdict": "no factored form improved both tables"
+   },
+   {
+    "pass_name": "prefix",
+    "l_min": 8,
+    "chains": 2,
+    "priced": 800,
+    "accepts": 2,
+    "skipped_overlap": 109,
+    "skipped_stale": 0,
+    "overlap_guard": true,
+    "verdict": "rejected: compound 1.2060/1.1627 does not beat the input on both tables",
+    "base": [
+     0.8186859999999987,
+     0.8598259999999992
+    ],
+    "chain_k": 15,
+    "treeified": [
+     1.2110552763819094,
+     1.1698564593301433
+    ],
+    "compound": [
+     1.2060301507537685,
+     1.1626794258373203
+    ],
+    "wall_s": 2035.1,
+    "budget": "budget unbounded: complete (2062.1s elapsed)",
+    "ratio": [
+     1.0,
+     1.0
+    ],
+    "price_cap": 800,
+    "passes": 3
+   },
+   {
+    "pass_name": "linwin",
+    "priced": 0,
+    "accepts": 0,
+    "skipped_overlap": 0,
+    "near_misses": [],
+    "overlap_guard": true,
+    "base": [
+     0.8186859999999987,
+     0.8598259999999992
+    ],
+    "ratio": [
+     1.0,
+     1.0
+    ],
+    "wall_s": 2.1,
+    "budget": "budget unbounded: complete (2064.3s elapsed)",
+    "verdict": "no accepted windows",
+    "price_cap": 800,
+    "passes": 3
+   },
+   {
+    "pass_name": "mowin",
+    "priced": 419,
+    "accepts": 0,
+    "skipped_overlap": 0,
+    "near_misses": [
+     {
+      "window": 9066,
+      "root": [
+       "N298",
+       "N450"
+      ],
+      "t1": 0.8186859999999987,
+      "t2": 0.8598259999999992,
+      "d_t1": 0.0,
+      "d_t2": 0.0,
+      "worst": 0.0
+     },
+     {
+      "window": 9087,
+      "root": [
+       "N350",
+       "N449"
+      ],
+      "t1": 0.8186859999999987,
+      "t2": 0.8598259999999992,
+      "d_t1": 0.0,
+      "d_t2": 0.0,
+      "worst": 0.0
+     },
+     {
+      "window": 9233,
+      "root": [
+       "N280",
+       "N448"
+      ],
+      "t1": 0.8186859999999987,
+      "t2": 0.8598259999999992,
+      "d_t1": 0.0,
+      "d_t2": 0.0,
+      "worst": 0.0
+     },
+     {
+      "window": 9355,
+      "root": [
+       "N442",
+       "N447"
+      ],
+      "t1": 0.8186859999999987,
+      "t2": 0.8598259999999992,
+      "d_t1": 0.0,
+      "d_t2": 0.0,
+      "worst": 0.0
+     },
+     {
+      "window": 9418,
+      "root": [
+       "N280",
+       "N350"
+      ],
+      "t1": 0.8186859999999987,
+      "t2": 0.8598259999999992,
+      "d_t1": 0.0,
+      "d_t2": 0.0,
+      "worst": 0.0
+     },
+     {
+      "window": 9126,
+      "root": [
+       "N390",
+       "N446"
+      ],
+      "t1": 0.8227999999999986,
+      "t2": 0.8639399999999992,
+      "d_t1": 0.005025126,
+      "d_t2": 0.004784689,
+      "worst": 0.005025126
+     },
+     {
+      "window": 9306,
+      "root": [
+       "N287",
+       "N488"
+      ],
+      "t1": 0.8227999999999986,
+      "t2": 0.8639399999999993,
+      "d_t1": 0.005025126,
+      "d_t2": 0.004784689,
+      "worst": 0.005025126
+     },
+     {
+      "window": 9124,
+      "root": [
+       "N727",
+       "N805"
+      ],
+      "t1": 0.8186859999999987,
+      "t2": 0.8659969999999991,
+      "d_t1": 0.0,
+      "d_t2": 0.007177033,
+      "worst": 0.007177033
+     },
+     {
+      "window": 9329,
+      "root": [
+       "N400",
+       "N522"
+      ],
+      "t1": 0.8227999999999986,
+      "t2": 0.8659969999999991,
+      "d_t1": 0.005025126,
+      "d_t2": 0.007177033,
+      "worst": 0.007177033
+     },
+     {
+      "window": 9330,
+      "root": [
+       "N400",
+       "N523"
+      ],
+      "t1": 0.8227999999999986,
+      "t2": 0.8659969999999991,
+      "d_t1": 0.005025126,
+      "d_t2": 0.007177033,
+      "worst": 0.007177033
+     },
+     {
+      "window": 9331,
+      "root": [
+       "N400",
+       "N524"
+      ],
+      "t1": 0.8227999999999986,
+      "t2": 0.8659969999999991,
+      "d_t1": 0.005025126,
+      "d_t2": 0.007177033,
+      "worst": 0.007177033
+     },
+     {
+      "window": 9332,
+      "root": [
+       "N400",
+       "N525"
+      ],
+      "t1": 0.8227999999999986,
+      "t2": 0.8659969999999991,
+      "d_t1": 0.005025126,
+      "d_t2": 0.007177033,
+      "worst": 0.007177033
+     }
+    ],
+    "overlap_guard": true,
+    "base": [
+     0.8186859999999987,
+     0.8598259999999992
+    ],
+    "ratio": [
+     1.0,
+     1.0
+    ],
+    "wall_s": 958.8,
+    "budget": "budget unbounded: complete (3023.1s elapsed)",
+    "verdict": "no accepted windows",
+    "price_cap": 800,
+    "passes": 3
+   }
+  ],
+  "base": [
+   0.8392559999999989,
+   0.8886239999999996
+  ],
+  "final": [
+   0.8186859999999987,
+   0.8598259999999992
+  ],
+  "ratio": [
+   0.9754901960784311,
+   0.9675925925925921
+  ],
+  "changed": true,
+  "budget": "budget unbounded: complete (3025.0s elapsed)"
+ },
+ "gates": [
+  {
+   "candidate": "e2",
+   "built": true,
+   "accepted": false,
+   "e2": [
+    85.43955199999003,
+    85.43955199999003
+   ],
+   "incumbent": [
+    0.8186859999999987,
+    0.8598259999999992
+   ],
+   "reason": "rejected: T1 85.4396 vs 0.818686, T2 85.4396 vs 0.859826"
+  },
+  {
+   "candidate": "e2",
+   "summary": true,
+   "shipped_before": [
+    0.8186859999999987,
+    0.8598259999999992
+   ],
+   "shipped_after": [
+    0.8186859999999987,
+    0.8598259999999992
+   ],
+   "changed": false
+  },
+  {
+   "candidate": "b1",
+   "built": true,
+   "accepted": false,
+   "with_b1": [
+    0.7364059999999993,
+    0.9585619999999992
+   ],
+   "without_b1": [
+    0.8186859999999987,
+    0.8598259999999992
+   ],
+   "reason": "rejected: T1 0.818686->0.736406, T2 0.859826->0.958562 -- regresses a reported table"
+  }
+ ],
+ "net_activity": {
+  "computed": false,
+  "note": "pass --net-activity to measure it"
+ },
+ "result": {
+  "gates_in": 323,
+  "gates_after_resynth": 257,
+  "depth": 9,
+  "cap_inserted": 8,
+  "devices": 1348,
+  "devices_capped": 1412,
+  "devices_structural_capped": 1412,
+  "devices_overhead_capped": 0,
+  "devices_overhead_cell_capped": 0,
+  "energy_cycle_pJ": 0.8186859999999987,
+  "energy_act_pJ": 0.28189773333333346,
+  "energy_cycle_pJ_capped": 0.8598259999999992,
+  "energy_act_pJ_capped": 0.2943930000000001,
+  "wall_s": 3033.9
+ },
+ "checks": {
+  "mapped_roundtrip": {
+   "checked": true,
+   "instances": 1412,
+   "phases": 4,
+   "rail_swaps": 0,
+   "trials": 16
+  }
+ }
+}

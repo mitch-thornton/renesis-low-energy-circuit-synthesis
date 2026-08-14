@@ -1,0 +1,4 @@
+#!/bin/sh
+# renesis -- the orchestration entry point.  See scripts_adiabatic/renesis.py
+export PYTHONHASHSEED=0
+exec python3 "$(dirname "$0")/scripts_adiabatic/renesis.py" "$@"

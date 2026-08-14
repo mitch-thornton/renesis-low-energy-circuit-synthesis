@@ -1,0 +1,13 @@
+.DS_Store
+*.o
+*.a
+*.so
+__pycache__/
+csrc/renesis
+csrc/rsynth
+csrc/vsim
+csrc/vsim_quad
+csrc/vsim_cubic
+csrc/vsim_brank
+csrc/vsim_block
+csrc/parity_out/

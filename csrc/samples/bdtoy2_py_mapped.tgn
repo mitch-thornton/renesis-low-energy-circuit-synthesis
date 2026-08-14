@@ -1,0 +1,34 @@
+.family tgate_sl6_cfg
+.levels 15
+.cap 6 user stages=0
+g e2n_2 ph0 POS=P(S(+x13)) NEG=P(S(-x13))
+g e2n_1 ph1 POS=P(S(-x0,-e2n_2),S(+x0,+e2n_2)) NEG=P(S(-x0,+e2n_2),S(+x0,-e2n_2))
+g e2n_14 ph1 POS=P(S(-x5,-e2n_2),S(+x5,+e2n_2)) NEG=P(S(-x5,+e2n_2),S(+x5,-e2n_2))
+g e2n_13 ph2 POS=P(S(-x6,-e2n_14),S(+x6,+e2n_14)) NEG=P(S(-x6,+e2n_14),S(+x6,-e2n_14))
+g lmh0 ph2 POS=-e2n_1 NEG=+e2n_1
+g e2n_12 ph3 POS=P(S(-x9,-e2n_13),S(+x9,+e2n_13)) NEG=P(S(-x9,+e2n_13),S(+x9,-e2n_13))
+g e2n_11 ph0 POS=P(S(-x8,-e2n_12),S(+x8,+e2n_12)) NEG=P(S(-x8,+e2n_12),S(+x8,-e2n_12))
+g e2n_10 ph1 POS=P(S(-x11,-e2n_11),S(+x11,+e2n_11)) NEG=P(S(-x11,+e2n_11),S(+x11,-e2n_11))
+g e2n_9 ph2 POS=P(S(-x12,-e2n_10),S(+x12,+e2n_10)) NEG=P(S(-x12,+e2n_10),S(+x12,-e2n_10))
+g e2n_8 ph3 POS=P(S(-x7,-e2n_9),S(+x7,+e2n_9)) NEG=P(S(-x7,+e2n_9),S(+x7,-e2n_9))
+g e2n_7 ph0 POS=P(S(-x10,-e2n_8),S(+x10,+e2n_8)) NEG=P(S(-x10,+e2n_8),S(+x10,-e2n_8))
+g e2n_24 ph1 POS=P(S(-x17,-e2n_7),S(+x17,+e2n_7)) NEG=P(S(-x17,+e2n_7),S(+x17,-e2n_7))
+g e2n_6 ph1 POS=P(S(-x4,-e2n_7),S(+x4,+e2n_7)) NEG=P(S(-x4,+e2n_7),S(+x4,-e2n_7))
+g e2n_20 ph2 POS=P(S(-x14,-e2n_6),S(+x14,+e2n_6)) NEG=P(S(-x14,+e2n_6),S(+x14,-e2n_6))
+g e2n_23 ph2 POS=P(S(-x14,-e2n_24),S(+x14,+e2n_24)) NEG=P(S(-x14,+e2n_24),S(+x14,-e2n_24))
+g e2n_5 ph2 POS=P(S(-x3,-e2n_6),S(+x3,+e2n_6)) NEG=P(S(-x3,+e2n_6),S(+x3,-e2n_6))
+g e2n_17 ph3 POS=P(S(-x14,-e2n_5),S(+x14,+e2n_5)) NEG=P(S(-x14,+e2n_5),S(+x14,-e2n_5))
+g e2n_19 ph3 POS=P(S(-x15,-e2n_20),S(+x15,+e2n_20)) NEG=P(S(-x15,+e2n_20),S(+x15,-e2n_20))
+g e2n_22 ph3 POS=P(S(-x15,-e2n_23),S(+x15,+e2n_23)) NEG=P(S(-x15,+e2n_23),S(+x15,-e2n_23))
+g e2n_4 ph3 POS=P(S(-x2,-e2n_5),S(+x2,+e2n_5)) NEG=P(S(-x2,+e2n_5),S(+x2,-e2n_5))
+g e2n_15 ph0 POS=P(S(-x14,-e2n_4),S(+x14,+e2n_4)) NEG=P(S(-x14,+e2n_4),S(+x14,-e2n_4))
+g e2n_16 ph0 POS=P(S(-x15,-e2n_17),S(+x15,+e2n_17)) NEG=P(S(-x15,+e2n_17),S(+x15,-e2n_17))
+g e2n_18 ph0 POS=P(S(-x16,-e2n_19),S(+x16,+e2n_19)) NEG=P(S(-x16,+e2n_19),S(+x16,-e2n_19))
+g e2n_21 ph0 POS=P(S(-x16,-e2n_22),S(+x16,+e2n_22)) NEG=P(S(-x16,+e2n_22),S(+x16,-e2n_22))
+g e2n_3 ph0 POS=P(S(-x1,-e2n_4),S(+x1,+e2n_4)) NEG=P(S(-x1,+e2n_4),S(+x1,-e2n_4))
+g lmh1 ph1 POS=+e2n_3 NEG=-e2n_3
+g lmh2 ph1 POS=+e2n_15 NEG=-e2n_15
+g lmh3 ph1 POS=+e2n_16 NEG=-e2n_16
+g lmh4 ph1 POS=+e2n_18 NEG=-e2n_18
+g lmh5 ph1 POS=+e2n_21 NEG=-e2n_21
+g y0 ph2 POS=P(S(+lmh0,-lmh1),S(-lmh0,+lmh1)) NEG=P(S(+lmh0,+lmh1),S(-lmh0,-lmh1))

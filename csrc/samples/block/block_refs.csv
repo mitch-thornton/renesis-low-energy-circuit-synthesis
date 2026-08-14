@@ -1,0 +1,5 @@
+name,n,m,v_lo,v_hi,exact,brute_v
+block_a,11,8,9,9,1,9
+block_b,11,6,10,10,1,10
+block_c,11,6,9,9,1,9
+block_d,16,7,14,14,1,14

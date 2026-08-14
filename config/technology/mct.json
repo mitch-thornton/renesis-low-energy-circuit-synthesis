@@ -1,0 +1,9 @@
+{
+ "target_technology": "mct",
+ "role": "mapping_target",
+ "description": "abstract reversible MCT (historical backend; unit-capacitance pass-gate model, activity-weighted)",
+ "note": "Abstract reversible MCT backend -- the tool's historical output. Not a physical technology: no cell model, so it cannot be priced by the energy model.",
+ "mapper_kind": "mct",
+ "parameters": {},
+ "mapper_family": "mct"
+}

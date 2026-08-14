@@ -1,0 +1,9 @@
+# VSIM reversible-embedding scripts -- Python dependencies
+# The exact embedding kernels (structured, symplectic, arf, cubic_exact,
+# bounded_rank, order_profile, embedcost, miter_count, mitercp, and the named
+# oracles) use only the Python standard library.
+matplotlib==3.11.1        # figure regeneration only
+# Optional, for the legacy VSIM-vs-SAT probe scripts only (not the embedding kernel):
+# python-sat==1.9.dev7
+# pyapproxmc==4.3.2
+# dd==0.6.0
