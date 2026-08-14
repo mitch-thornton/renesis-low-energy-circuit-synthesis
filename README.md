@@ -34,7 +34,7 @@ same input and options give the same result, on any machine.
 ### The browser interface
 
 ```
-./renesis_ui
+./renesis ui
 ```
 
 Picks a free port, starts a local server and opens the browser on the
