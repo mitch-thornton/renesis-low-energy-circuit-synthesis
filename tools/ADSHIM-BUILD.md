@@ -1,4 +1,4 @@
-# tools/adshim -- the shared EXORCISM + CUDD shim (v61)
+# tools/adshim -- the shared EXORCISM + CUDD shim
 
 One library, two consumers: `csrc/rsynth` links `libadshim.a` statically and
 `scripts_adiabatic/adshim.py` (mirrored in `scripts/`) loads `libadshim.so`
@@ -11,9 +11,10 @@ the parity cells only prove the plumbing.
 - `tools/exorcism/` -- vendored snapshot of Bruno Schmitt's EXORCISM
   (BSD-2-Clause; single-output, <= 32 inputs, exorlink-2/3).  Sources under
   `source/`; no `.git`.
-- `tools/cudd-pic/` -- CUDD 3.x built `--with-pic` (the sibling
-  `/home/claude/work/cudd-install` build is NOT position-independent and
-  cannot be linked into a shared object; recipe below).
+- `tools/cudd-pic/` -- the CUDD header.  The CUDD library itself is not
+  vendored; build it once with `--with-pic` (a build without `-fPIC`
+  cannot be linked into a shared object; recipe below, and
+  `MACOS-SETUP.md` §2a for macOS).
 - `tools/adshim/` -- `adshim.h` (C API), `adshim.cpp` (C++17 wrapper),
   `Makefile` producing `libadshim.so` + `libadshim.a`.
 
@@ -21,7 +22,7 @@ the parity cells only prove the plumbing.
 
     # 1. PIC CUDD (once; from a pristine CUDD source tree)
     cp -r <cudd-src> /tmp/cudd-src && cd /tmp/cudd-src && make distclean
-    ./configure --prefix=<bundle>/tools/cudd-pic --with-pic
+    ./configure --prefix=<repo>/tools/cudd-pic --with-pic
     make -j4 && make install
 
     # 2. the shim (also triggered automatically by `make -C csrc rsynth`)
@@ -38,7 +39,7 @@ the parity cells only prove the plumbing.
                      int max_nodes, int32_t *root_out);  /* -> n_nodes | -1 */
 
 Truth tables: 2^k bits (k <= 16), packed little-endian in uint64 words --
-the bundle's internal convention on both sides.
+the tool's internal convention on both sides.
 
 ESOP: seed cover = the function's minterms as disjoint full cubes, built
 through exorcism's own `cube32::insert` API (the same construction its PLA
@@ -65,7 +66,7 @@ index).
    unchanged.
 
 That is the only source change; everything else is byte-identical to the
-snapshot taken from /home/claude/work/exorcism.
+upstream snapshot.
 
 ## Determinism
 
@@ -83,9 +84,9 @@ shim through two entirely different call paths.
 ## Known limits
 
 - exorcism: single output, <= 32 variables.  The shim additionally caps
-  k <= 16 (bundle truth-table convention).  Neither limit binds: block
-  realisation calls have k <= 12 (taware) / 16 (adiabatic).
+  k <= 16 (the truth-table convention).  Neither limit binds: block
+  realisation calls have k <= 16.
 - Parity-heavy functions (e.g. crc8 cones) are exorcism's worst case from
   minterm seeds: a k-var XOR keeps 2^(k-1) cubes with no gain, and pricing
   every candidate cut then exceeds sane budgets.  The parity harness
-  excludes crc8 from the esop cells for this reason (see csrc/PARITY.md).
+  excludes crc8 from the esop cells for this reason.

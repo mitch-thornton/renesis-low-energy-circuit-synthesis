@@ -1028,9 +1028,9 @@ csrc/rsynth csrc/samples/c17.isc --mode adiabatic --tech tgate --energy --stats
 `MACOS-SETUP.md` — the build on Apple Silicon, including CUDD.
 `WEB-UI-HOWTO.md` — the browser interface, end to end.
 `config/renesis_options.json` — the options table; authoritative on defaults
-(`--show-options` prints it). `csrc/PARITY.md` — the Python-vs-C byte-parity
-contract. `csrc/TESTING.md` — the C test suite. `tools/ADSHIM-BUILD.md` —
-building the adshim library. `spice/README.md` — the per-family cell decks.
+(`--show-options` prints it). `csrc/run_tests.sh` — the test suite, including
+the Python-vs-C byte-parity check. `tools/ADSHIM-BUILD.md` — building the
+adshim library. `spice/README.md` — the per-family cell decks.
 
 ---
 
