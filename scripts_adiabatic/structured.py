@@ -8,8 +8,8 @@
 #
 #  Author:      Mitchell A. Thornton
 #  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
-#  Modified:    2026-08-10  (Renesis v89.11)
-#  Created:     Renesis v89.11 (this cut)
+#  Modified:    2026-08-16  (Renesis v92.2)
+#  Created:     Renesis v89.11 (earliest version token in file)
 # ---------------------------------------------------------------------------
 """Task 1: exact embedding cost on structured (affine) functions, at scale.
 For f(x)=Ax over GF(2): distinct outputs = 2^rank(A), N_dup = 2^{n-rank}, v = n - rank(A),

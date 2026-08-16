@@ -12,7 +12,7 @@
  *
  *  Author:      Mitchell A. Thornton
  *  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
- *  Modified:    2026-08-10  (Renesis v89.11)
+ *  Modified:    2026-08-16  (Renesis v92.2)
  *  Created:     Renesis v83 (earliest version token in file)
  * --------------------------------------------------------------------------- */
 /* renesis (C) -- the orchestration entry point.
@@ -60,7 +60,7 @@
  * fails the cut on any mismatch, same as the Python driver.  It sat at
  * v84 from the port's first cut through v89.7 while the tool changed
  * underneath it, which is exactly the drift the gate now forbids. */
-#define RENESIS_VERSION "v90.8"
+#define RENESIS_VERSION "v92.2"
 
 /* renesis_tags.c -- bit-exact port of CPython's MT19937 + the forward sweep. */
 double *renesis_forward_sim(const RNet *nl, int trials, int seed);
@@ -1085,6 +1085,7 @@ int main(int argc, char **argv)
             else                         bc.price_cap = -1;
         }
         bc.verbose = !quiet;
+        bc.prescreen = cfg.prescreen;        /* v91.3 */
         bc.drv = have_drv ? &drv : NULL;     /* v90.6 drive model */
         if (ropt_bdec_run(nl, &bc, &bdec_rep, &bdec_map, &bdec_ref,
                           &bdec_alias) != 0) {

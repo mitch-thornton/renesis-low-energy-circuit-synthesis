@@ -20,8 +20,8 @@
  *
  *  Author:      Mitchell A. Thornton
  *  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
- *  Modified:    2026-08-11  (Renesis v90.2)
- *  Created:     Renesis v90.2 (this cut)
+ *  Modified:    2026-08-16  (Renesis v92.2)
+ *  Created:     Renesis v90.2 (earliest version token in file)
  * --------------------------------------------------------------------------- */
 #include "ropt.h"
 
@@ -34,6 +34,18 @@
 /* ------------------------------------------------------------ small utils */
 
 static void *xm(size_t n) {
+    /* v91.2: an explicit upper bound, so the compiler can PROVE the size is
+     * sane.  Callers compute sizes as sizeof(T) * (size_t)count with an int
+     * count; GCC's value-range propagation cannot rule out a negative count
+     * several frames up, infers a range near SIZE_MAX, and warns
+     * -Walloc-size-larger-than= on every such call -- ten of them across this
+     * tree on any recent GCC, on both architectures, silent under Apple
+     * clang.  The check is not cosmetic: an overflowed size now aborts here,
+     * named, instead of reaching malloc as an absurd request. */
+    if (n > (size_t)PTRDIFF_MAX) {
+        fprintf(stderr, "ropt_elim: allocation size overflow\n");
+        exit(2);
+    }
     void *p = malloc(n ? n : 1);
     if (!p) { fprintf(stderr, "ropt_elim: out of memory\n"); exit(2); }
     return p;

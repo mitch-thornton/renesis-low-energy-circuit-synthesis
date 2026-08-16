@@ -10,8 +10,8 @@
 #
 #  Author:      Mitchell A. Thornton
 #  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
-#  Modified:    2026-08-10  (Renesis v89.11)
-#  Created:     Renesis v89.11 (this cut)
+#  Modified:    2026-08-16  (Renesis v92.2)
+#  Created:     Renesis v89.11 (earliest version token in file)
 # ---------------------------------------------------------------------------
 """revsynth local web UI.
 
@@ -47,6 +47,7 @@ def do_synth(req):
     mode = req.get("mode", "auto")
     fmt = req.get("out_format", "real")
     lut_k = int(req.get("lut_k", 10))
+    recompute = int(req.get("recompute", 0))
     with tempfile.TemporaryDirectory() as td:
         inp = os.path.join(td, fname)
         with open(inp, "wb") as f:

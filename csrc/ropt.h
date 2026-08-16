@@ -20,8 +20,8 @@
  *
  *  Author:      Mitchell A. Thornton
  *  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
- *  Modified:    2026-08-11  (Renesis v90.1)
- *  Created:     Renesis v90.1 (this cut)
+ *  Modified:    2026-08-16  (Renesis v92.2)
+ *  Created:     Renesis v90.1 (earliest version token in file)
  * --------------------------------------------------------------------------- */
 #ifndef ROPT_H
 #define ROPT_H
@@ -211,6 +211,7 @@ typedef struct {
     double      wall_s;                       /* v90.6: < 0 == unbounded   */
     long        price_cap;                   /* <= 0: none                */
     int         verbose;
+    int         prescreen;               /* v91.3: 0 == search anyway */
     /* v90.6 drive model (renesis_drive.h).  NULL == uniform.  Threaded to
      * the pass's INTERNAL tag sweeps only (core/tail, cover=switching),
      * exactly as bdec_kit.search(drv=...) hands it to tags_if_needed --

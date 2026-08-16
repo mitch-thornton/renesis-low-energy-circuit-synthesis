@@ -6,7 +6,7 @@
  *
  *  Author:      Mitchell A. Thornton
  *  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
- *  Modified:    2026-08-10  (Renesis v89.11)
+ *  Modified:    2026-08-16  (Renesis v92.2)
  *  Created:     Renesis v89.7 (earliest version token in file)
  * --------------------------------------------------------------------------- */
 /* renesis_cfg -- see renesis_cfg.h for the contract. */
@@ -127,6 +127,7 @@ int rcfg_load(RenesisCfg *c, const char *bundle_root, const char *opts_path)
     c->chain_l_min  = (int)dnum(o, "optimization", "chain_l_min", 8);
     c->chain_idx    = (int)dnum(o, "optimization", "chain_idx", 0);
     c->overlap_guard = dbool(o, "optimization", "overlap_guard", 1);
+    c->prescreen     = dbool(o, "optimization", "prescreen", 1);
     c->elim         = dstr(o, "optimization", "elim", "none");
     c->elim_min_gain = (int)dnum(o, "optimization", "elim_min_gain", 1);
     c->elim_value_limit = (int)dnum(o, "optimization", "elim_value_limit", 0);
@@ -316,6 +317,7 @@ int rcfg_set(RenesisCfg *c, const char *assignment)
         {"chain_l_min", 0, &c->chain_l_min},
         {"chain_idx", 0, &c->chain_idx},              /* v90.2 (missed in .1) */
         {"overlap_guard", 3, &c->overlap_guard},
+        {"prescreen", 3, &c->prescreen},              /* v91.3 */
         {"equivalence_trials", 0, &c->equivalence_trials},
         {"equivalence_seed", 0, &c->equivalence_seed},
         {"wall_s", 1, &c->wall_s},
@@ -397,6 +399,7 @@ void rcfg_dump(const RenesisCfg *c, FILE *out)
         " \"price_cap\": \"%s\",\n \"passes\": \"%s\",\n"
         " \"pass_order\": \"%s\",\n \"chain_l_min\": %d,\n"
         " \"overlap_guard\": %s,\n"
+        " \"prescreen\": %s,\n"
         " \"equivalence_trials\": %d,\n \"equivalence_seed\": %d,\n"
         " \"wall_s\": ",
         c->technology, c->tech_dir,
@@ -412,6 +415,7 @@ void rcfg_dump(const RenesisCfg *c, FILE *out)
         c->davio ? "true" : "false", c->davio_widths,
         c->price_cap, c->passes, c->pass_order, c->chain_l_min,
         c->overlap_guard ? "true" : "false",
+        c->prescreen ? "true" : "false",
         c->equivalence_trials, c->equivalence_seed);
     if (c->wall_s < 0) fprintf(out, "null\n}\n");
     else               fprintf(out, "%g\n}\n", c->wall_s);

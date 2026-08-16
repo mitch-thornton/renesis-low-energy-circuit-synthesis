@@ -1,0 +1,31 @@
+# Renesis -- Python package requirements
+#
+# matplotlib is the ONLY third-party Python package this repository imports
+# anywhere.  An abstract-syntax-tree walk over every .py file in the tree
+# finds it and nothing else: no numpy, no scipy, no pandas, no networkx.
+#
+# Nothing below is needed for the synthesis itself.  These all run on a stock
+# Python 3.11 with no packages installed at all:
+#
+#   ./renesis <netlist>                 the driver, every option, every pass
+#   ./csrc/renesis <netlist>            the C tool
+#   --convert / --schematic / --spice-gen
+#   csrc/run_tests.sh                   the whole suite
+#
+# matplotlib is needed for pictures, and only for pictures:
+#
+#   revsynth.py --pdf                   the reversible front end's report
+#   the browser interfaces               circuit-page previews and PDF export
+#
+# Without it the servers still start and revsynth.py still writes its
+# netlist; the run says the report was skipped.  Asking for --pdf explicitly
+# without it names this file rather than raising.
+#
+#   pip3 install -r requirements.txt
+#
+# The floor is a judgement, not a measurement: the code uses
+# matplotlib.use("Agg"), PdfPages, and Figure.savefig(format="svg"), all far
+# older than 3.5.  3.5 is simply old enough to be uncontroversial and new
+# enough to install.  Verified against 3.10.9.
+#
+matplotlib>=3.5

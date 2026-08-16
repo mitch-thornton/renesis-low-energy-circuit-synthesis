@@ -11,7 +11,7 @@
  *
  *  Author:      Mitchell A. Thornton
  *  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
- *  Modified:    2026-08-10  (Renesis v89.11)
+ *  Modified:    2026-08-16  (Renesis v92.2)
  *  Created:     Renesis v56 (earliest version token in file)
  * --------------------------------------------------------------------------- */
 /* rsynth_tech.c -- v56 technology-mapping backend (C mirror of
@@ -183,6 +183,43 @@ static TNode *t_group(TArena *A, int kind, TNode **xs, int nxs) {
 #define T_SER(A, xs, n) t_group((A), TK_SER, (xs), (n))
 #define T_PAR(A, xs, n) t_group((A), TK_PAR, (xs), (n))
 
+/* ===================================================================== v92.1
+ * BUG-V92-01.  An empty parallel group must be a REFUSAL, not a process exit.
+ *
+ * Python's _depth() on an empty parallel group raises -- max() of an empty
+ * sequence -- and every caller that can reach it catches and declines the
+ * candidate: tech_map.py's _provably_safe wraps the merged-cone probe in
+ * `except Exception: return False`, and the pass-2 pricer wraps try_merge in
+ * `except Exception: continue`.  This build called exit(2) here instead, so
+ * where Python declined ONE fanout-one merge, the C engine terminated with
+ * rc=2 and no run record.  That is the whole of BUG-V92-01, and the measured
+ * backtrace on c1355 says so exactly:
+ *
+ *     t_depth <- tm_rail <- tm_map_block <- tech_block_stats_c
+ *             <- b1_provably_safe <- b1_absorb <- tech_synth_ab_c
+ *             <- ropt_release_price <- ropt_prefix_resynth
+ *
+ * b1_provably_safe IS _provably_safe.  The fix is therefore to give the C the
+ * raise its counterpart already has: record the condition and return, and let
+ * the two probe chokepoints (tech_block_stats_c, b1_total) report failure the
+ * way they already report every other unbuildable cone.
+ *
+ * WHAT THIS CAN AND CANNOT CHANGE.  t_depth_bad is set at exactly the line
+ * that used to call exit(2).  Any run that ever produced a result never
+ * reached that line, so no completed run anywhere -- no matrix cell, no
+ * published number, no accepted candidate -- can move.  The behaviour change
+ * is confined to inputs that previously killed the process.  Where the
+ * condition escapes a probe and reaches the SHIPPED mapping path it is still
+ * fatal, and still says so: see the check at the end of tech_synth_ab_c.
+ *
+ * A structural pre-check was tried first and rejected: refusing every merge
+ * whose cone contains a constant refuses a SUPERSET of what Python refuses --
+ * Python builds such cones happily when they map -- and it broke nine parity
+ * cells on ctrl and router.  The predicate is not "contains a constant", it
+ * is "does not build", and the only faithful way to evaluate that is to
+ * build it, which is what Python does. */
+static int t_depth_bad = 0;
+
 static int t_depth(const TNode *t) {
     if (t->kind == TK_LIT) return 1;
     if (t->kind == TK_SER) {
@@ -191,10 +228,12 @@ static int t_depth(const TNode *t) {
         return s;
     }
     if (t->nch == 0) {
-        /* Python's _depth on an empty par raises (max of empty); the guard
-         * at the split site prevents reaching this for top-level empties */
-        fprintf(stderr, "rsynth: tech depth of empty parallel network\n");
-        exit(2);
+        /* Python's _depth on an empty par raises (max of empty).  Record it
+         * and return a depth of 0: the value is never consumed, because every
+         * caller that can reach here aborts on the flag, and 0 cannot drive
+         * the split loops that read t_depth into extra work on the way out. */
+        t_depth_bad = 1;
+        return 0;
     }
     int m = 0;
     for (int i = 0; i < t->nch; i++) {
@@ -966,7 +1005,22 @@ static int tech_block_stats_c(const RNet *nl, int root, const int *leaves,
     MapCtx cx;
     int fresh = 0;
     mapctx_init(&cx, nl, sm, &fresh, series_limit);
+    /* v92.1 (BUG-V92-01): this is a PROBE -- the C analogue of the merged-cone
+     * build inside tech_map.py's _provably_safe.  Python's build raises on an
+     * empty parallel group and the caller declines the candidate; report the
+     * same thing here as the -1 this function already returns for a cone that
+     * does not build.  Saved and restored so a nested probe cannot clear a
+     * detection an outer one is still holding. */
+    int td_save = t_depth_bad;
+    t_depth_bad = 0;
     tm_map_block(&cx, root, leaves, k);
+    if (t_depth_bad) {
+        t_depth_bad = td_save;
+        mapctx_free(&cx);
+        tech_free(sm);
+        return -1;
+    }
+    t_depth_bad = td_save;
     int dev = 0;
     for (int i = 0; i < sm->n_gates; i++)
         dev += t_devices(sm->gates[i].pos) + t_devices(sm->gates[i].neg);
@@ -1917,18 +1971,35 @@ static int cmp_int_b1(const void *a, const void *b) {
  * sub-gates ARE counted -- see B1-C-PORT-PLAN "the trap").  Optionally skip one
  * root (skip) and override one consumer's cut (ov_idx/ov_leaves/ov_k), so a
  * candidate merge can be priced WITHOUT mutating pc.  Integer; pad omitted. */
+/* v92.1 (BUG-V92-01): "this cover does not build", returned by b1_total in
+ * place of a cost.  LONG_MAX is deliberately NOT used as a large cost: a
+ * refusal is never compared, it is tested for by identity. */
+#define B1_UNPRICED LONG_MAX
+
 static long b1_total(const RNet *nl, const char *family, int series_limit,
                      const RPlanCover *pc, int skip, int ov_idx,
                      const int *ov_leaves, int ov_k) {
     TechMap *sm = tm_new(nl, family, series_limit, 4, 0);
     MapCtx cx; int fresh = 0;
     mapctx_init(&cx, nl, sm, &fresh, series_limit);
+    /* v92.1 (BUG-V92-01): the pass-2 pricer, the C analogue of
+     * _inc.try_merge inside tech_map.py's `except Exception: continue`.
+     * B1_UNPRICED is the refusal; b1_absorb never compares against it. */
+    int td_save = t_depth_bad;
+    t_depth_bad = 0;
     for (int i = 0; i < pc->n_roots; i++) {
         if (i == skip) continue;
         const int *lv = (i == ov_idx) ? ov_leaves : pc->plans[i].leaves;
         int k = (i == ov_idx) ? ov_k : pc->plans[i].k;
         tm_map_block(&cx, pc->roots[i], lv, k);
     }
+    if (t_depth_bad) {
+        t_depth_bad = td_save;
+        mapctx_free(&cx);
+        tech_free(sm);
+        return B1_UNPRICED;
+    }
+    t_depth_bad = td_save;
     int nn = sm->nt.n;
     unsigned char *freen = xmalloc((size_t)(nn ? nn : 1));
     memset(freen, 0, (size_t)nn);
@@ -1990,6 +2061,11 @@ static void b1_commit(RPlanCover *pc, int ri, int ci, int *new_cut, int u) {
 static void b1_absorb(const RNet *nl, const char *family, int K,
                       int series_limit, int overhead, RPlanCover *pc) {
     long base = b1_total(nl, family, series_limit, pc, -1, -1, NULL, 0);
+    /* v92.1 (BUG-V92-01): the cover handed to B1 does not build.  Nothing can
+     * be compared against a refusal, so decline to absorb rather than accept
+     * every candidate against a meaningless baseline.  Unreachable on any
+     * cover this engine has ever mapped -- reaching it used to be exit(2). */
+    if (base == B1_UNPRICED) return;
     int progress = 1;
     while (progress) {
         progress = 0;
@@ -2021,14 +2097,21 @@ static void b1_absorb(const RNet *nl, const char *family, int K,
                                             pc->roots[ci], nc, u);
                 } else {
                     long v = b1_total(nl, family, series_limit, pc, ri, ci, nc, u);
-                    if (v < base) { take = 1; base = v; }
+                    /* v92.1: B1_UNPRICED is a refusal, not a cost */
+                    if (v != B1_UNPRICED && v < base) { take = 1; base = v; }
                 }
                 if (take) {
                     int *keep = xmalloc(sizeof(int) * (size_t)(u ? u : 1));
                     memcpy(keep, nc, sizeof(int) * (size_t)u);
                     b1_commit(pc, ri, ci, keep, u);
-                    if (pass == 1)
-                        base = b1_total(nl, family, series_limit, pc, -1, -1, NULL, 0);
+                    if (pass == 1) {
+                        long nb = b1_total(nl, family, series_limit, pc,
+                                           -1, -1, NULL, 0);
+                        /* v92.1: a provably-safe merge cannot make the cover
+                         * unbuildable -- its own probe built it.  Keep the
+                         * previous baseline rather than adopt a refusal. */
+                        if (nb != B1_UNPRICED) base = nb;
+                    }
                     progress = 1;
                 }
                 free(nc);
@@ -2286,13 +2369,28 @@ TechMap *tech_synth_ab_c(const RNet *nl, const char *family, int K,
     MapCtx cx;
     int fresh = 0;
     mapctx_init(&cx, nl, m, &fresh, series_limit);
-    for (int i = 0; i < pc.n_roots; i++)
+    /* v92.1 (BUG-V92-01): this is the SHIPPED map, not a probe.  An empty
+     * parallel group here means the cover that survived every acceptance gate
+     * cannot be realised, which is a defect in this engine and not a candidate
+     * to decline -- so it stays fatal, exactly as before, and says which block
+     * it was.  t_depth no longer exits on its own precisely so that the probes
+     * above can decline; this restores the loud failure where declining is not
+     * an option. */
+    t_depth_bad = 0;
+    for (int i = 0; i < pc.n_roots; i++) {
         if (block_realise && !strcmp(block_realise, "bdd"))
             tm_map_block_bdd(&cx, pc.roots[i], pc.plans[i].leaves,
                              pc.plans[i].k, bdd);
         else
             tm_map_block(&cx, pc.roots[i], pc.plans[i].leaves,
                          pc.plans[i].k);
+        if (t_depth_bad) {
+            fprintf(stderr, "rsynth: tech depth of empty parallel network "
+                            "in mapped block '%s'\n",
+                    nl->nname[pc.roots[i]] ? nl->nname[pc.roots[i]] : "?");
+            exit(2);
+        }
+    }
     plancover_free(&pc);
     tm_finalize(m, nl);
     mapctx_free(&cx);

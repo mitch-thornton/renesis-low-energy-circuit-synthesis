@@ -11,7 +11,7 @@
 #
 #  Author:      Mitchell A. Thornton
 #  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
-#  Modified:    2026-08-10  (Renesis v89.11)
+#  Modified:    2026-08-16  (Renesis v92.2)
 #  Created:     Renesis v79 (earliest version token in file)
 # ---------------------------------------------------------------------------
 """The linear pre-filter (boundary decoder) as a callable pass.
@@ -150,10 +150,51 @@ def _better(e, inc):
                  or e["t2"] < inc["t2"] * (1 - REL_TOL)))
 
 
+def screen(nl):
+    """v91.3 pre-flight screen.  Returns a verdict STRING when the search
+    provably cannot realise a row of B, or None when it might.
+
+    WHY PAIRS ARE ENOUGH.  `search` is a hill climb over ELEMENTARY row
+    additions, accepted one at a time.  From B = I every row has weight 1, so
+    the first accepted move can only produce a row of weight 2; a weight-3 row
+    is reachable only by first ACCEPTING a weight-2 one.  `core_netlist`
+    realises a row only when its members are all structurally affine and their
+    supports cancel to something strictly thinner than the thinnest of them.
+    So round 1 can realise a row IFF some PAIR of affine outputs collapses,
+    and if round 1 realises nothing there is no later round to reach a wider
+    row.  Exact with respect to what the search can reach, at O(m^2).
+
+    WHAT IT ASSUMES.  With no row realised, every candidate is the original
+    outputs plus a generic XOR bank plus a decoder bank -- strictly more
+    hardware than the identity.  Concluding "cannot accept" from "cannot
+    realise" assumes strictly more hardware never prices below identity, which
+    is not a theorem here because the cover is a heuristic.  It is measured
+    instead, by the gated-vs-ungated equality cell in validate_all.sh.
+
+    STRUCTURAL, not functional.  This mirrors `core_netlist`, which builds
+    from `linmap_kit.structural_affine`.  An output that is affine as a
+    function but not as a structure cannot be realised either, so screening on
+    the structural form is the right test and is stronger than a functional
+    census would suggest."""
+    aff = lk.structural_affine(nl)
+    sup = [set(f[1]) for f in aff if f is not None and f[1]]
+    n = len(sup)
+    if n < 2:
+        return ("screened: %d structurally affine output(s), a row needs 2 "
+                "(--option prescreen=false to search anyway)" % n)
+    for p in range(n):
+        for q in range(p + 1, n):
+            d = len(sup[p] ^ sup[q])
+            if 0 < d < min(len(sup[p]), len(sup[q])):
+                return None
+    return ("screened: no pair of %d affine outputs cancels "
+            "(--option prescreen=false to search anyway)" % n)
+
+
 def search(nl, family="tgate_sl6", wmax=WMAX, pool=POOL, max_rounds=MAXROUNDS,
            search_ms=2000, final_ms=None, e2_forest_ms=8000, tag_trials=4000,
            tag_seed=1, drv=None, budget=None, verbose=False, price_cap=None,
-           synth_kw=None):
+           synth_kw=None, prescreen=True):
     """Hill-climb over row-add moves.  Returns (B, report).
 
     Two budgets per candidate, as in the driver: a cheap SEARCH-budget price to
@@ -175,6 +216,19 @@ def search(nl, family="tgate_sl6", wmax=WMAX, pool=POOL, max_rounds=MAXROUNDS,
         rep["ratio"] = [1.0, 1.0]
         rep["wall_s"] = round(time.time() - t0, 1)
         return identity(max(m, 1)), rep
+
+    if prescreen:
+        why = screen(nl)
+        if why is not None:
+            I = identity(m)
+            rep["verdict"] = why
+            rep["identity"] = [0.0, 0.0]
+            rep["ratio"] = [1.0, 1.0]
+            rep["final"] = [0.0, 0.0]
+            rep.setdefault("coverage", [])
+            rep["B"] = ["%x" % x for x in I]
+            rep["wall_s"] = round(time.time() - t0, 1)
+            return I, rep
 
     cache = {}
 

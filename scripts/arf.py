@@ -13,8 +13,8 @@
 #
 #  Author:      Mitchell A. Thornton
 #  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
-#  Modified:    2026-08-10  (Renesis v89.11)
-#  Created:     Renesis v89.11 (this cut)
+#  Modified:    2026-08-16  (Renesis v92.2)
+#  Created:     Renesis v89.11 (earliest version token in file)
 # ---------------------------------------------------------------------------
 """Arf-signed quadratic point-count -- the missing piece to make the cubic recursion
 an EXACT method for degree 3.

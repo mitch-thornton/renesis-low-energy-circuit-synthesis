@@ -14,8 +14,8 @@
 #
 #  Author:      Mitchell A. Thornton
 #  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
-#  Modified:    2026-08-10  (Renesis v89.11)
-#  Created:     Renesis v89.11 (this cut)
+#  Modified:    2026-08-16  (Renesis v92.2)
+#  Created:     Renesis v89.11 (earliest version token in file)
 # ---------------------------------------------------------------------------
 """verilog_front_v1.py -- a Verilog front end that accepts the dialects real
 netlists are actually written in, plus a structural guard that refuses to return

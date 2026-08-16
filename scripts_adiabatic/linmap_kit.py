@@ -15,7 +15,7 @@
 #
 #  Author:      Mitchell A. Thornton
 #  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
-#  Modified:    2026-08-10  (Renesis v89.11)
+#  Modified:    2026-08-16  (Renesis v92.2)
 #  Created:     Renesis v79 (earliest version token in file)
 # ---------------------------------------------------------------------------
 """linmap_kit.py -- shared stage-1 infrastructure for item 22 (v79 series).
@@ -180,16 +180,157 @@ def bank_gates(rows, in_names, out_names, wire_prefix):
 
 H_FMT, Y_FMT = "lmh%d", "lmy%d"          # core-output / final-output nets
 HW_PREFIX, DW_PREFIX = "lmhw", "lmdw"    # tree wire prefixes (disjoint)
+AW_PREFIX = "lmaw"                       # v91.2: affine-row tree wires
+
+
+# ---------------------------------------------------------------------------
+# v91.2. Affine output forms, read STRUCTURALLY off the cone.
+#
+# Why this exists: through v91.1 the core was the whole original netlist with
+# the B bank bolted on its outputs, so a row that combines two outputs was
+# emitted as the XOR of their two finished cones and the cancellation the
+# re-encoding exists to create was left for the technology mapper to
+# rediscover inside a K-cut.  Measured on csrc/samples/bdslide.v, one row
+# addition: realised algebraically the candidate dominates at 0.9464/0.9205;
+# realised that way it REGRESSES to 1.1964/1.1250 and the search -- correctly,
+# under two-table dominance -- refuses it.  See V91.2-BDEC-PLAN.md.
+#
+# The test is STRUCTURAL and therefore EXACT: a cone built only from XOR,
+# XNOR, NOT and BUF over the primary inputs is affine, and its support and
+# constant fall straight out of a topological walk.  No sampling, no RNG, no
+# tolerance -- which matters in a codebase whose two implementations owe each
+# other byte identity.  A cone containing anything else is simply not
+# reported, and the caller falls back to the v91.1 construction, so this can
+# only ever add candidates and never change an existing one.
+#
+# What it does NOT catch: a function that is affine but built from AND/OR/
+# NAND clusters.  `scripts_adiabatic/linear_census.py` finds those, by
+# evaluation rather than by structure; wiring that in wants exact
+# verification that survives the byte contract, and is not this change.
+# ---------------------------------------------------------------------------
+
+_AFFINE_FUNCS = ("XOR", "XNOR", "NOT", "BUF")
+
+
+def structural_affine(nl):
+    """Affine form of each PRIMARY OUTPUT, or None where the cone is not.
+
+    Returns a list of length len(nl.outputs); entry i is either None or a
+    pair (const, support) with `support` a tuple of PRIMARY-INPUT INDICES in
+    ascending order, meaning  out_i = const XOR (+)_{j in support} in_j.
+
+    Support is carried as a set through the walk and sorted on the way out,
+    so nothing downstream can depend on set iteration order."""
+    idx = {name: j for j, name in enumerate(nl.inputs)}
+    # net -> (const, frozenset(indices)); absent means "not affine"
+    form = {name: (0, frozenset((j,))) for name, j in idx.items()}
+    for g in nl.topo_gates():
+        if g.func not in _AFFINE_FUNCS:
+            continue
+        parts = [form.get(i) for i in g.ins]
+        if any(p is None for p in parts):
+            continue
+        c, sup = 0, set()
+        for pc, ps in parts:
+            c ^= pc
+            sup ^= set(ps)
+        if g.func == "XNOR" or g.func == "NOT":
+            c ^= 1
+        form[g.out] = (c, frozenset(sup))
+    out = []
+    for o in nl.outputs:
+        f = form.get(o)
+        out.append(None if f is None else (f[0], tuple(sorted(f[1]))))
+    return out
+
+
+def affine_row_gates(sigs, const, out_name, wire_prefix, counter):
+    """Balanced XOR tree over `sigs` with the constant folded into the LAST
+    gate's polarity: XNOR instead of XOR, or NOT instead of BUF at weight 1.
+    Same reduction shape and the same fresh-wire discipline as
+    `xor_row_gates`, so the two emitters cannot drift."""
+    gates = []
+    if len(sigs) == 1:
+        gates.append(Gate(out_name, "NOT" if const else "BUF", [sigs[0]]))
+        return gates
+    level = list(sigs)
+    while len(level) > 2:
+        nxt = []
+        for i in range(0, len(level) - 1, 2):
+            w = "%s%d" % (wire_prefix, counter[0]); counter[0] += 1
+            gates.append(Gate(w, "XOR", [level[i], level[i + 1]]))
+            nxt.append(w)
+        if len(level) % 2:
+            nxt.append(level[-1])
+        level = nxt
+    gates.append(Gate(out_name, "XNOR" if const else "XOR",
+                      [level[0], level[1]]))
+    return gates
 
 
 def core_netlist(nl, B):
-    """N_h: f's structure + B rows over f's outputs; outputs h = B.f.
-    E2's forest of N_h is the forest of B.f -- the gain path."""
+    """N_h: outputs h = B.f.
+
+    v91.2: a row whose selected outputs are ALL structurally affine in the
+    primary inputs is emitted directly over those inputs, as the XOR tree of
+    the symmetric difference of their supports -- which is what makes the
+    cancellation visible to the mapper instead of hiding it behind two
+    finished cones.  Every other row is emitted exactly as before, over the
+    original outputs.  The original gates are copied in either way; logic no
+    row reaches is unreachable from h and the cover never prices it
+    (measured: 40 dead gates on bdslide move neither devices nor either
+    table).
+
+    THREE conditions gate the algebraic form, and each one is load-bearing:
+
+    * **Weight at least two.**  A weight-1 row IS an original output; there is
+      nothing to cancel, and re-deriving it would rebuild a cone that already
+      exists.  This is what keeps B = I byte-identical to v91.1, and with it
+      every incumbent price, every bdec run that finds nothing, and every
+      recorded number on a circuit this pass declines.
+
+    * **Every selected output structurally affine.**  Otherwise there is no
+      algebraic form to take.
+
+    * **The symmetric difference strictly sparser than the thinnest support
+      it came from.**  This is the whole point: a row addition is worth
+      taking algebraically exactly when it CANCELS.  Combine two wide
+      outputs whose supports are disjoint and the difference is their sum --
+      a fresh tree as wide as both cones together, while the bank form pays
+      one XOR over cones the other rows need anyway.  Without this test the
+      construction would hand the search candidates worse than the ones it
+      already had, which is the defect this change exists to remove, merely
+      pointing the other way.
+
+    A row whose symmetric difference is EMPTY fails the third test anyway:
+    an empty support is a constant, the outputs it combines are identical,
+    and a constant core row is a degeneracy to decline rather than invent a
+    driver for."""
     m = len(nl.outputs)
     assert gf2_is_invertible(B, m), "B not invertible"
     h = [H_FMT % i for i in range(m)]
-    g = bank_gates(B, list(nl.outputs), h, HW_PREFIX)
-    return Netlist(nl.name + "_bh", list(nl.inputs), h, list(nl.gates) + g)
+    aff = structural_affine(nl)
+    gates = list(nl.gates)
+    acount, done = [0], [False] * m
+    for i, r in enumerate(B):
+        sel = [j for j in range(m) if (r >> j) & 1]
+        if len(sel) < 2 or any(aff[j] is None for j in sel):
+            continue
+        c, sup = 0, set()
+        for j in sel:
+            cj, sj = aff[j]
+            c ^= cj
+            sup ^= set(sj)
+        if not sup or len(sup) >= min(len(aff[j][1]) for j in sel):
+            continue
+        sigs = [nl.inputs[k] for k in sorted(sup)]
+        gates.extend(affine_row_gates(sigs, c, h[i], AW_PREFIX, acount))
+        done[i] = True
+    rows = [r for i, r in enumerate(B) if not done[i]]
+    outs = [h[i] for i in range(m) if not done[i]]
+    if rows:
+        gates.extend(bank_gates(rows, list(nl.outputs), outs, HW_PREFIX))
+    return Netlist(nl.name + "_bh", list(nl.inputs), h, gates)
 
 
 def decoder_netlist(B, name="bdec", mapped_only=False):

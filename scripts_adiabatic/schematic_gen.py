@@ -13,7 +13,7 @@
 #
 #  Author:      Mitchell A. Thornton
 #  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
-#  Modified:    2026-08-10  (Renesis v89.11)
+#  Modified:    2026-08-16  (Renesis v92.2)
 #  Created:     Renesis v89.10 (earliest version token in file)
 # ---------------------------------------------------------------------------
 """schematic_gen.py -- circuit-description exports for visualization.
@@ -197,7 +197,7 @@ def _render(written, verbose):
                           % (p, r.stderr.strip()[:60]))
             elif verbose:
                 print("  schematic: `netlistsvg` not on PATH -- %s written, "
-                      "SVG skipped (brew install netlistsvg)" % p)
+                      "SVG skipped (npm install -g netlistsvg)" % p)
     return out
 
 

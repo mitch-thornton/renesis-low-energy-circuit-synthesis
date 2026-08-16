@@ -1,9 +1,10 @@
 # Renesis User Manual
 
-Every user-facing option of both front ends: what it does, its default, and a
-runnable example. Every example in this document was executed against a clean
-copy of this repository before release, and every default stated here was
-checked mechanically against `config/renesis_options.json`.
+**v92.2.** Every user-facing option of both front ends: what it does, its
+default, and a runnable example. Every example in this document is executed
+against a fresh extraction of the bundle before the bundle ships, and a checker
+in the release procedure refuses the cut if any default here
+disagrees with `config/renesis_options.json` or if any example fails to run.
 
 Renesis is an energy-aware reversible/adiabatic logic synthesis tool. It maps a
 combinational netlist to a dual-rail, power-clocked transmission-gate network
@@ -51,14 +52,15 @@ capability and says so when it is missing.
 | C toolchain (`cc`, `make`) | `csrc/renesis`, `csrc/rsynth` | the C build buys speed, not capability, except for `--bdd cudd` |
 | **CUDD** | **linking the C tool** | see the note below -- this is required to BUILD, whatever the backend. <https://github.com/ivmai/cudd> |
 | **EXORCISM** | `libadshim`; the `esop` and `best` realizers | **vendored** at `tools/exorcism` -- nothing to install |
-| `matplotlib` | the browser UI's PDF report and circuit-page previews | the UI will not start without it |
+| `matplotlib` | the browser UI's circuit-page previews and PDF export; `revsynth.py --pdf` | **optional as of v91.2.** Both interfaces start and synthesize without it; the picture and the PDF are skipped and the page says which package is missing. `pip3 install -r requirements.txt` |
 
-**CUDD is required to BUILD the C tool, whatever the backend.**  What is
-optional is the `--bdd cudd` *backend* (the default backend is `homebrew`,
-and every published number uses it).  Both Makefiles link `$(CUDD_A)`
-unconditionally on the `renesis` and `rsynth` targets, so a tree without a
-CUDD fails at link with `cannot find ../cudd-pic/lib/libcudd.a`.  The
-genuinely CUDD-free route is to run the Python side only.
+**CUDD is required to build the C tool, and this correction matters.**
+`MACOS-SETUP.md` has long been headed "CUDD is optional"; what is optional is
+the `--bdd cudd` *backend* (the default backend is `homebrew`, and every
+published number uses it).  Both Makefiles link `$(CUDD_A)` unconditionally
+on the `renesis` and `rsynth` targets, so a clean extraction without a CUDD
+fails at link with `cannot find ../cudd-pic/lib/libcudd.a`.  The genuinely
+CUDD-free route is to run the Python side only.
 
 **EXORCISM: which one.**  Several unrelated implementations carry the name.
 The one vendored here, and the one every result was produced with, is Bruno
@@ -83,17 +85,19 @@ reproduce these results.
 comparison baseline, built by `scripts_adiabatic/aspdac_baseline.py`.  Its
 *optimised*-NOR construction is what needs ABC.
 
-**Locating ABC.**  There is ONE documented variable: **`$ABC`**.  The search
-order is `$ABC`, then the deprecated `$ABC_BIN`, then `abc` on PATH, then
-`/usr/local/bin`, `/opt/homebrew/bin`, `~/bin`, `~/src/abc`.
+**Locating ABC.**  As of v90.7 there is ONE documented variable: **`$ABC`**.
+The search order is `$ABC`, then the deprecated `$ABC_BIN`, then `abc` on
+PATH, then `/usr/local/bin`, `/opt/homebrew/bin`, `~/bin`, `~/src/abc`.
+Before v90.7 the server read `$ABC` while `revsynth --mode abc` read
+`$ABC_BIN`, both defaulting to the literal path `/tmp/abc/abc`.
 
 ---
 
 ## 2. Build
 
-The repository ships no build products. CUDD is **not** vendored —
-`tools/cudd-pic/` carries only the header. Build CUDD once
-(`MACOS-SETUP.md` §2a), then:
+The bundle ships no build products. CUDD is **not** vendored — the x86 archive
+under `tools/cudd-pic/` is excluded from every bundle because it cannot link on
+an Apple Silicon Mac. Build CUDD once (`MACOS-SETUP.md` §2a), then:
 
 ```
 make -C tools/adshim clean
@@ -102,9 +106,9 @@ make -C tools/adshim CUDD_DIR=$HOME/opt/cudd
 make -C csrc         CUDD_DIR=$HOME/opt/cudd
 ```
 
-`CUDD_DIR` is required on **every** make line; both Makefiles default it to a
-vendored path the repository does not contain. `make -C csrc` builds both
-`rsynth` and `renesis`, and `make -C csrc clean` removes both.
+`CUDD_DIR` is required on **every** make line; both Makefiles default it to the
+vendored path that bundles do not contain. As of v87.1 `make -C csrc` builds
+both `rsynth` and `renesis`, and `make -C csrc clean` removes both.
 
 ---
 
@@ -112,8 +116,8 @@ vendored path the repository does not contain. `make -C csrc` builds both
 
 `PYTHONHASHSEED=0` is required and asserted; the driver exits without it.
 
-Relative paths resolve against the **repository root**, not your shell's
-working directory. Use absolute paths in scripts.
+Relative paths resolve against the **bundle root**, not your shell's working
+directory. Use absolute paths in scripts.
 
 There is no `--flag=value` form. Write `--tech tgate_sl6`, not `--tech=...`.
 
@@ -153,8 +157,9 @@ then open <http://localhost:8766> (energy-aware) or <http://localhost:8765>
 exposed off the machine.  **The `.html` files are not programs** -- opening
 one directly gives a page whose buttons are dead, because the page must be
 served for its requests to reach the process that does the synthesis.
-`matplotlib` is required; see sec. 1a.  Section 5a covers what the interface
-offers; `WEB-UI-HOWTO.md` is the full walkthrough.
+`matplotlib` is optional -- the interface starts and synthesizes without it,
+and skips the circuit picture and the PDF export -- see sec. 1a.  Section 5a
+covers what the interface offers; `WEB-UI-HOWTO.md` is the full walkthrough.
 
 ---
 
@@ -172,13 +177,13 @@ renesis csrc/samples/c17.isc --tech pfal
 
 ### `--tech-dir DIR` — where technology files are read
 Default `config/technology`. Point it at your own directory to use custom
-technologies without editing the repository.
+technologies without editing the bundle.
 
 ```
 renesis csrc/samples/c17.isc --tech-dir config/technology
 ```
 
-**User-supplied families.** Both tools read the FULL family
+**User-supplied families (v89.9).** Both tools read the FULL family
 parameter set from the technology file — overheads, self-load, clock
 load, residue, static multiplier, buffer devices, capacitances,
 voltage — so a family Renesis never shipped works from one JSON: set
@@ -187,14 +192,19 @@ voltage — so a family Renesis never shipped works from one JSON: set
 DIR`. Fields the file omits fall back to the mapper family's values.
 Shipped files must equal the release tables — the loader refuses to
 run otherwise — so this freedom is for YOUR files, not for quietly
-editing the shipped ones.
+editing ours. See VALIDATE-V89.9.md D3 for a complete worked example
+run in both languages.
 
 ### `--cap N` — buffer-insertion cap
 Default **6**. The longest source-drain chain permitted in a finished gate;
 longer chains are segmented into restored dual-rail stages. `--cap` drives
 **buffer insertion only**; the mapper's in-flight series limit comes from the
-technology description (`series_limit` in the family file), and both drivers
-honor the file on every family. PTL practice wants 2–4; 6 is a documented
+technology description (`series_limit` in the family file). v89.8 made that
+sentence true: through v89.7 the Python driver silently overrode every
+family's series limit with the `--cap` value — a leftover from the tgate_sl6
+construction, where the two numbers coincide — while the C driver honored
+the file, so the two drivers disagreed on every other family. They now agree
+on all of them, checked per cut. PTL practice wants 2–4; 6 is a documented
 compromise for `tgate_sl6`.
 
 ```
@@ -209,7 +219,7 @@ realisation cost. Not a runtime knob at benchmark sizes.
 renesis csrc/samples/c17.isc --k 8
 ```
 
-### `--k-ladder LIST` — several cut sizes, one champion
+### `--k-ladder LIST` — several cut sizes, one champion (v89.7)
 Default **off** (empty). Runs the covering stage at each K in the list and
 keeps a champion. The **first** rung is the incumbent and always completes;
 every later rung is priced on both energy tables and accepted only under the
@@ -225,14 +235,14 @@ about the heuristic, not about the space; the ladder turns that fact into a
 recoverable result instead of a lost one.
 
 Not combinable with `--bdec` (which produces the final mapping itself) or
-with a comparison baseline. Python driver only; the C tool refuses the
-option by name.
+with a comparison baseline. Python orchestrator only in this cut; the C tool
+refuses the option by name.
 
 ```
 renesis csrc/samples/c17.isc --k-ladder 12,8
 ```
 
-### `--k-ladder-s S` — wall-clock budget for the ladder
+### `--k-ladder-s S` — wall-clock budget for the ladder (v89.7)
 Default **0** (no budget). Bounds the rungs **after** the first: the
 incumbent always completes, and once S seconds have elapsed the remaining
 rungs are recorded `SKIPPED (budget)` and the best *completed* rung wins.
@@ -242,7 +252,7 @@ The ladder degrades to its incumbent, never to nothing. Needs `--k-ladder`.
 renesis examples/reconv24.v --k-ladder 12,8,6,4 --k-ladder-s 1
 ```
 
-### `--accept RULE` — ladder rung acceptance
+### `--accept RULE` — ladder rung acceptance (v89.7)
 `both` (default) or `t2`. `both` accepts a rung only if it improves one
 energy table and worsens neither — the same never-regress rule every
 optimization gate in this tool applies. `t2` accepts on a capped-table (T2)
@@ -271,7 +281,9 @@ renesis csrc/samples/c17.isc --option max_cuts=16
 ### `--cover MODE` — which cover prices the cuts
 `tech` (default) or `switching`. `tech` prices each candidate by its exact
 realisation cost in the target technology; `switching` by activity only. These
-are the only two legal values.
+are the only two values — v87.1 removed `flowmap` and `abc` from the legal
+list, because the dispatch has only ever had two branches and those two values
+were accepted and then silently meant `switching`.
 
 ```
 renesis csrc/samples/c17.isc --cover switching
@@ -281,7 +293,9 @@ renesis csrc/samples/c17.isc --cover switching
 `auto` (default), `shallow`, `structural`. `auto` lets the energy model choose
 per block — the one place the energy model makes a structural rather than a
 reporting decision. **`shallow` is refused above 16 primary inputs**, by name
-and with a reason, because it builds full 2ⁿ truth tables.
+and with a reason, because it builds full 2ⁿ truth tables. v87.1 corrected this
+list; it previously read `auto|direct|bdd`, and `direct` and `bdd` were accepted
+and then silently meant `structural`.
 
 ```
 renesis csrc/samples/c17.isc --route shallow
@@ -289,7 +303,7 @@ renesis csrc/samples/c17.isc --route shallow
 
 ---
 
-## 5a. Circuit descriptions, SPICE, and the UI
+## 5a. Circuit descriptions, SPICE, and the UI (v89.10)
 
 ### `--schematic BASE` — visualization exports
 Writes `BASE_independent.dot` (Graphviz: `dot -Tsvg`), `BASE_independent.json`
@@ -323,8 +337,9 @@ renesis csrc/samples/c17.isc --spice-gen /tmp/c17
 ### The `spice/` folder
 One generated cell deck per family — the tool's own synthesis of the
 canonical two-input gate (`spice/and2.v`) — plus a README. Generated by
-`scripts_adiabatic/gen_spice_cells.py`, and regenerated and compared
-before every release, so the folder cannot drift from the tool.
+`scripts_adiabatic/gen_spice_cells.py`; release-gate check [10]
+regenerates and compares at every cut, so the folder cannot drift from
+the tool.
 
 ### `renesis ui` — the browser interface, one command
 Starts the synthesis server on a free port and opens your browser
@@ -335,7 +350,7 @@ the CLI; runs report the same statistics as the console, offer the PDF
 report, and can download the schematic and SPICE exports with a note on
 which tool opens each.
 
-In the technology-mapping context the run button reads
+v89.11 controls: in the technology-mapping context the run button reads
 **Technology Map** (same engine as Synthesize -- the label follows the
 context); **New circuit** clears the loaded file, results and options
 back to defaults; **Quit** stops the local server from the page.  The
@@ -366,8 +381,10 @@ renesis csrc/samples/c17.isc --option depth_weight=0.25
 ```
 
 ### `absorb_fo1` — B1 fanout-one absorption
-Default **`exact`**; `off` disables it. Under the default `route=auto` this
-option is often invisible, because
+Default **`exact`**; `off` disables it. On by default since v78. As of v87.1
+`off` actually means off: both gates tested truthiness, and every string is
+truthy in Python, so the documented opt-out had been enabling the thing it
+named. Under the default `route=auto` this option is often invisible, because
 the B1 both-tables gate builds both variants and keeps the better; it shows up
 when you force a route (on c880 at `route=structural`, `exact` gives 0.748748
 against `off` at 0.839256).
@@ -382,8 +399,8 @@ c432  route=structural  off    T1=0.707608  T2=0.732292
 c432  route=auto        either T1=0.707608  T2=0.732292
 ```
 
-The run tells you this rather than leaving you to infer it — see §11, gate
-receipts.
+As of v88.1 the run tells you this instead of leaving you to infer it — see
+§11, gate receipts.
 
 ```
 renesis csrc/samples/c17.isc --option absorb_fo1=off
@@ -413,7 +430,7 @@ circuit from the same input. It has never been observed to bind on the
 benchmark set — a winning forest is tens of nodes and the limit exists for
 genuine blowups — but if you are reproducing a published figure and want
 host-independence, set `e2_forest_ms=0`, which removes the timer and leaves
-the node ceiling as the only bound.
+the node ceiling as the only bound. See APPROXIMATIONS A37.
 
 ```
 renesis csrc/samples/c17.isc --option e2_forest_ms=2000
@@ -452,21 +469,28 @@ renesis csrc/samples/c17.isc --option charge_pi=true
 ```
 
 ### `--emit-buffers` / `--no-emit-buffers` — build the pipeline buffer chains
-Default **on**. The pipelined families (2LAL, S2LAL) require a value
-produced at one phase to be relayed to a consumer several phases later.
-With emission on, each relay stage is a real dual-rail identity gate in the
-netlist, phase-assigned and re-levelled, and the chains are re-run after
-`cap_series` because capping deepens the network and creates new stage
-demand. **2LAL therefore emits exactly what it prices**: on c432, 1574
-devices emitted against 1574 priced. S2LAL retains a gap of exactly its ×2
-`static_mult` — a replication factor with no structural form, which stays
-priced-only and is stated in `checks.emission_gap` in the JSON record.
+Default **on** since v89.3. The pipelined families (2LAL, S2LAL) require a
+value produced at one phase to be relayed to a consumer several phases
+later, and through v89 the tool *priced* those relay stages — a flat
+`buf_stages × buf_dev` term — without *building* them, so the emitted
+netlist was not the priced one. With emission on, each stage is a real
+dual-rail identity gate in the netlist, phase-assigned and re-levelled, and
+the chains are re-run after `cap_series` because capping deepens the
+network and creates new stage demand.
 
-`--no-emit-buffers` instead prices the relay stages as a flat
-`buf_stages × buf_dev` term without building them. The two accountings
-differ by about 22% on the pipelined families, because a deep relay chain
-is itself subject to the series cap and the flat term never sees those
-insertions:
+Two things follow, and both are worth understanding rather than memorising.
+First, **2LAL now emits exactly what it prices**: on c432, 1574 devices
+emitted against 1574 priced, where v89 was 886 short. S2LAL retains a gap
+of exactly 1574 — its ×2 `static_mult`, a replication factor with no
+structural form, which stays priced-only and stated in
+`checks.emission_gap`. Second, **building the chains raised the 2LAL and
+S2LAL figures about 22%**, because a twelve-deep chain is itself subject to
+the series cap and the flat term never saw those insertions. That is a
+correction, not a regression: the pricing was low, and building what was
+priced is what revealed it.
+
+`--no-emit-buffers` reproduces the pre-correction figure, kept permanently
+so the correction can always be measured against the number it replaced:
 
 ```
 renesis bench/c432.v --tech 2lal
@@ -474,9 +498,12 @@ renesis bench/c432.v --tech 2lal --no-emit-buffers
 ```
 
 The first reports T1 2.752266 pJ (capped devices 1574); the second
-2.250358 pJ. The environment variable `RENESIS_EMIT_BUFFERS=0|1` overrides
-both implementations identically. Families that are not pipelined are
-untouched by this option in either position.
+2.250358 pJ — the v89 figure exactly. The environment variable
+`RENESIS_EMIT_BUFFERS=0|1` overrides both implementations identically; it
+exists because the parity harness runs fixed command lines, and an
+environment switch is the only way to A/B both sides without editing the
+harness. Families that are not pipelined are untouched by this option in
+either position.
 
 ---
 
@@ -506,19 +533,22 @@ fanouts when that pays for itself in literal occurrences — followed by
 single-cube division. `both` additionally attempts multi-cube kernel
 extraction with rectangle covering.
 
-**Elimination is what moves the energy.** On c880 the pass is accepted at
-0.8725× T1 and 0.9722× T2, and the kernel extractions inside that same run
-save three literal occurrences and move the priced numbers not at all.
-Single-cube division finds almost nothing anywhere — the suite is two-input
-dominated and `--netprep`'s structural hashing already merged every
-identical-fanin pair, so the netlist arrives already single-cube-optimal.
-(`--factor` and the option key `factor` are accepted aliases, and `factor`
-is the pass's name in `--pass-order`.)
+The pass shipped at v89 as `--factor` and was renamed at v89.2, because the
+old name oversold the half that measures as neutral: **elimination is what
+moves the energy.** On c880 the pass is accepted at 0.8725× T1 and 0.9722×
+T2, and the kernel extractions inside that same run save three literal
+occurrences and move the priced numbers not at all. Single-cube division
+finds almost nothing anywhere — the suite is two-input dominated and
+`--netprep`'s structural hashing already merged every identical-fanin pair,
+so the netlist arrives already single-cube-optimal. `--factor` and the
+option key `factor` are still accepted, and `factor` remains the pass's name
+in `--pass-order`.
 
 It is not accepted everywhere, and the refusals are the gate working. On
 c432 and c1355 the both-tables gate rejects it; c432 is the instructive
 case, improving T1 by 3.5% while regressing T2 by 4.5% — precisely the
-trade the two-table objective exists to refuse.
+trade the two-table objective exists to refuse. Measured on six circuits;
+the twenty-circuit sweep decides whether it ever earns default-on.
 
 ```
 renesis bench/c880.v --elim single
@@ -548,7 +578,7 @@ what is worth extracting.
 
 This is a **filter, not the acceptance test**. Acceptance is unchanged:
 equivalence against the original netlist, then both-tables never-regress.
-(`--factor-min-gain` is an accepted alias.)
+(`--factor-min-gain`, the pre-v89.2 spelling, is still accepted.)
 
 ```
 renesis bench/c880.v --elim single --elim-min-gain 2
@@ -561,7 +591,7 @@ elimination, more series depth, worse T2 — and are where the 2.33× two-level
 flattening penalty starts to reappear. Raising it does create the product
 structure kernels need, which is the one reason it is exposed: the two goals
 are in direct tension and only a suite-level measurement can price it.
-(`--factor-value-limit` is an accepted alias.)
+(`--factor-value-limit` is still accepted.)
 
 ```
 renesis bench/c880.v --elim single --elim-value-limit 2
@@ -609,11 +639,23 @@ the core computes `h = B·f` and a decoder network at the boundary computes
 shared BDD forest shrinks, and the decoder stays cheap because weight-1 rows of
 B⁻¹ are free rail swaps in dual rail and are never mapped as gates.
 
-Unlike the other four passes it produces the **final mapping** rather than a
+Unlike the other five passes it produces the **final mapping** rather than a
 netlist, so it runs after the tag sweep and its result replaces the cover's.
 The circuit keeps your port names throughout. **Expensive**: every candidate is
 priced through a complete technology mapping, so use `--wall-s` and
 `--price-cap` (see §9).
+
+**Its pricing is bounded by wall clock, not by work.** Each candidate is
+priced with the shared multi-output BDD forest enabled and a millisecond
+budget (`e2_forest_ms`, 8000 by default; 2000 for the cheaper ranking pass).
+A faster machine explores more of that forest inside the same budget, so both
+the runtime and the search path depend on the machine: the same `--bdec` run
+can accept a different number of moves on a fast laptop than on a slow server.
+Add `--option auto_e2=false` when you need a bdec result that is a property of
+the circuit alone rather than of the machine that produced it. On the shipped
+`bdslide` and `bdtoy2` fixtures that flag changes nothing but the runtime; on
+other circuits it can change the result, because the forest is doing real work
+there.
 
 ```
 renesis csrc/samples/c17.isc --bdec --option bdec_rounds=1 --option bdec_pool=2
@@ -651,9 +693,9 @@ renesis csrc/samples/c17.isc --bdec --option bdec_rounds=1 --option bdec_pool=2
 ```
 
 ### `--optimize-all` — enable every implemented pass
-Enables `davio`, `prefix`, `linwin`, `mowin`. **Not `bdec`**: the pre-filter
-is an order of magnitude more expensive than the others, so it stays opt-in
-by name. Expensive; see §9.
+Enables `davio`, `prefix`, `linwin`, `mowin`. **Not `bdec`**: the pre-filter is
+implemented as of v88 but is an order of magnitude more expensive than the
+others, so it stays opt-in by name. Expensive; see §9.
 
 ```
 renesis examples/reconv24.v --optimize-all
@@ -676,9 +718,11 @@ Default **`davio,factor,prefix,linwin,mowin`**, independent of the order the
 flags were given. Every pass you ENABLE must be listed; an order that omits one
 you asked for is refused, because a pass left out could never run. Passes you
 leave off need not appear, so an order written before a later version added a
-pass keeps working. The default puts `linwin` before `mowin` because that is
-the `composed` arm, the adopted best on eight of the twenty benchmark
-circuits.
+pass keeps working — which is why adding `factor` at v89 did not invalidate
+every recorded `--pass-order` string. The default puts `linwin` before `mowin` because
+that is the `composed` arm, the adopted best on eight of the twenty benchmark
+circuits — before v87.1 the order was fixed the other way and that arm could not
+be expressed at all.
 
 ```
 renesis examples/reconv24.v --linwin --mowin --pass-order davio,prefix,mowin,linwin
@@ -711,7 +755,9 @@ renesis examples/reconv24.v --prefix --option chain_l_min=6
 ```
 
 ### `--chain N` — which carry chain `--prefix` rebuilds
-Default **0**, the longest, which is what every recorded result used.
+Default **0**, the longest, which is what every recorded result used. Exposed in
+v87.1; before that it was reachable only from a research driver, which put one
+parameter of a best-case result outside the tool.
 
 ```
 renesis examples/reconv24.v --prefix --chain 0
@@ -719,10 +765,44 @@ renesis examples/reconv24.v --prefix --chain 0
 
 ### `overlap_guard` — refuse windows overlapping rewritten material
 Default **on**, and measured better (c432: 0.8198/0.8230 with, 0.8547/0.8455
-without). It reaches all three window-using passes.
+without). As of v87.1 it reaches all three window-using passes; before, it was
+plumbed to `--prefix` only and the window passes applied it unconditionally.
 
 ```
 renesis examples/reconv24.v --linwin --option overlap_guard=false
+```
+
+### `prescreen` / `--no-prescreen` — skip a pass that provably cannot help
+Default **on** (v91.3). Before a pass searches, a cheap structural test asks
+whether it could construct any candidate at all on this netlist. When it could
+not, the pass reports a screened verdict naming the condition that failed and
+returns immediately, instead of searching for a result it cannot reach.
+
+A screen is a **necessary condition on candidate existence**, not a heuristic.
+If no candidate can be constructed, none can be accepted, so the pass would
+have returned the netlist unchanged — which is exactly what it returns when it
+searches and finds nothing. The mapped result is therefore identical either
+way and only the runtime differs; D23 of the release validation asserts that
+byte for byte on a fixed circuit set, both energy tables to 1e-9.
+
+`--bdec` carries the screen that matters. The search is a hill climb over
+elementary row additions accepted one at a time, so from `B = I` the first
+accepted move can only produce a row of weight two, and a row is realised only
+when the outputs it combines are structurally affine and their supports
+cancel. Round 1 can therefore realise a row if and only if some **pair** of
+affine outputs cancels. On the ISCAS circuits no pair does, and the pass stops
+in about the time a default run takes: c1355 115 s → 4 s, c880 62 s → 2 s. On
+`bdslide` and `bdtoy2`, the fixtures the pass exists for, the screen does not
+fire and nothing changes.
+
+Turn it off to force every enabled pass to search regardless. Do that when you
+are measuring the passes themselves — every published number in this project
+was produced with the screen off, and the release validation runs both ways.
+
+```
+renesis bench/c880.v --bdec                    # screened, seconds
+renesis bench/c880.v --bdec --no-prescreen     # full search, a minute
+csrc/renesis --option bdec=true --option prescreen=false bench/c880.v
 ```
 
 ### `--wall-s S` — wall-clock budget for the passes
@@ -736,7 +816,8 @@ renesis examples/reconv24.v --optimize-all --wall-s 60
 
 ### `equivalence_trials`, `equivalence_seed`
 Defaults **1024** and **13**. Random vectors used to check every candidate
-against the original netlist before it is priced.
+against the original netlist before it is priced. Live as of v87.1; before that
+they were read by nothing and the checks used a hardcoded 256.
 
 ```
 renesis examples/reconv24.v --linwin --option equivalence_trials=2048
@@ -813,8 +894,14 @@ the run reports comes from `energy_report`'s own separate 256-trial sweep. On a
 default run, `--tag-trials 256` and `--tag-trials 60000` produce byte-identical
 output.
 
-The sweep is skipped entirely when no cover can consume it, so a default run
-pays nothing for it.
+Through v88 the sweep still *ran* on a default run and was then discarded. It
+cost 24.3% of the price of one candidate on c432 and 25.3% on c880, and
+`release_price` runs it before **every** priced candidate, so an
+800-candidate pass spent a quarter of its life on a simulation nobody read.
+v88.1 skips it when no cover can consume it: measured 132.9 s → 105.4 s on
+`c432 --prefix --price-cap 60`, with T1, T2 and the device count identical to
+the last digit. Earlier versions of this manual claimed the opposite about this
+option; that claim was wrong.
 
 ```
 renesis csrc/samples/c17.isc --tag-trials 1000
@@ -833,13 +920,13 @@ renesis csrc/samples/c17.isc --net-activity
 
 ## 11. Output and reporting
 
-### Gate receipts
+### Gate receipts (v88.1)
 
 The mapper builds optional candidates — B1 fanout-one absorption, the E2 shared
-forest — and admits each only on a strict both-tables win. A losing candidate
-discarded in silence would make "toggling this option changed nothing"
-ambiguous between *the option is dead* and *the candidate was built and lost*,
-so every run prints one line per decision and records the same under the
+forest — and admits each only on a strict both-tables win. Through v88 a losing
+candidate was discarded in silence, which made "toggling this option changed
+nothing" ambiguous between *the option is dead* and *the candidate was built and
+lost*. Every run now prints one line per decision and records the same under the
 `gates` key in the JSON:
 
 ```
@@ -899,7 +986,7 @@ renesis --show-options
 
 ---
 
-## 12. Building a sweep
+## 12. Building a sweep, and generating table two
 
 A best-case table is honest when every parameter that differs from default is
 listed with the result. The record already carries that: `non_default` holds
@@ -967,7 +1054,8 @@ csrc/rsynth <input> --mode MODE [options]
 ```
 
 `--mode` is required (except with `--parse-only`): `bennett`, `clean`, `hybrid`,
-`hybridseg`, `adiabatic`. For energy work use `adiabatic`. Exit codes:
+`hybridseg`, `adiabatic` (`taware` left the tree at v89.6 with the RenesisQ
+excision). For energy work use `adiabatic`. Exit codes:
 0 success, 1 verification failure, 2 everything else.
 
 | Flag | Default | Notes |
@@ -977,7 +1065,7 @@ csrc/rsynth <input> --mode MODE [options]
 | `--segments s` | hybridseg 8 | |
 | `--cover c` | hybridseg `auto`; tech `switching` | two flags sharing one name, neither validated |
 | `--dealloc d` | `auto` | validated even in modes that ignore it |
-| `--auto-eps n` | 1 | `-1` restores the historical acceptance rule byte-identically |
+| `--auto-eps n` | 1 | `-1` restores the v65 rule byte-identically |
 | `--beam n` | 256 | 0 = greedy only |
 | `--realise r` | `fprm` | the cube form, not the block form |
 | `--tech FAM` | — | requires `--mode adiabatic` |
@@ -1003,43 +1091,86 @@ csrc/rsynth csrc/samples/c17.isc --mode adiabatic --tech tgate --energy --stats
 ## 15. Known traps
 
 1. **`--optimize-all` does not enable `--bdec`**, deliberately: the pre-filter
-   costs an order of magnitude more than the other passes, so it is opt-in by
-   name.
-2. **`--cap` interacts with the technology file.** Omit it and the file's
+   is implemented as of v88 but costs an order of magnitude more than the other
+   passes, so it is opt-in by name. In v87.1 and earlier `--bdec` was accepted
+   and ignored entirely; a sweep spanning both versions is not one sweep.
+3. **`--cap` interacts with the technology file.** Omit it and the file's
    `series_cap` drives buffer insertion while the table's value drives the
    mapper's series limit. They agree for `tgate_sl6`; they need not for a
    technology file you write.
-3. **`-q` plus an oversized netlist loses the round-trip skip record** from the
+4. **`-q` plus an oversized netlist loses the round-trip skip record** from the
    JSON. Do not read its absence as a pass.
-4. **`--convert` to `.v` skips its advertised check** unless
+5. **`--convert` to `.v` skips its advertised check** unless
    `--verilog-style iscas` is also given.
-5. **`--saif-lenient` is named in a `drive.py` error message but exists only
+6. **`--saif-lenient` is named in a `drive.py` error message but exists only
    under `analyze`.**
-6. **The options-table key `family_for_pricing` is read by nothing** — the
-   real value comes from the technology file.
-7. **Free-form `legal` entries are not enforced.** Enumerated ones are.
-   `"integer >= 1"` is still advisory.
-8. **The C tool's `--help` is garbled and incomplete.** See §14.
+7. **Four table keys are read by nothing**: `technology_dir`,
+   `equivalence_trials` and `equivalence_seed` were in this list before v87.1
+   and are now live; `family_for_pricing` remains dead as an option, since the
+   real value is read from the technology file.
+8. **Free-form `legal` entries are not enforced.** Enumerated ones are, as of
+   v87.1. `"integer >= 1"` is still advisory.
+9. **The C tool's `--help` is garbled and incomplete.** See §14.
+
+---
+
+## 15a. Checking your build, and reporting a problem
+
+If you are reading this inside the public repository, there is one command
+that answers "did this build correctly on my machine":
+
+```
+bash repo_validate.sh
+```
+
+You do not have to run it. Renesis works without it. Run it when you want
+assurance before you trust a number, or when something looks wrong and you
+want to say precisely what. It builds from scratch, counts compiler warnings
+and floating-point flag coverage, runs the C suite, checks the reference
+answer for `c17` to the last digit, checks that the Python driver and the C
+engine agree, and runs one re-synthesis pass end to end. Expect
+`ALL REPO CHECKS PASSED`, and two to five minutes on a current laptop.
+
+If anything fails, please open a GitHub issue. Include the whole console
+output plus `uname -a`, `cc --version` and `python3 -V`. If `repo_validate.sh`
+failed, its output *is* the report.
+
+Platform reports are especially useful. Renesis is developed on Apple silicon
+and tested on aarch64 Linux, x86-64 Linux and x86-64 Windows under WSL.
+Anything else is new ground, and a build log from new ground is a
+contribution.
+
+Two things are worth reporting even though they are not crashes: a result that
+differs between the Python driver and the C engine on the same input, and an
+energy figure that differs from the same run on another machine. Both
+implementations are held to byte-identical output by design, so either one is
+a real defect.
+
+(The full release validation is a much larger procedure — a 237-cell
+Python-versus-C parity matrix and twenty-plus documented steps — that runs
+against the development bundle, not against the repository.
+`repo_validate.sh` is the part of it that is meaningful in a clean checkout.)
 
 ---
 
 ## 16. Where to read more
 
-`MACOS-SETUP.md` — the build on Apple Silicon, including CUDD.
-`WEB-UI-HOWTO.md` — the browser interface, end to end.
-`config/renesis_options.json` — the options table; authoritative on defaults
-(`--show-options` prints it). `csrc/run_tests.sh` — the test suite, including
-the Python-vs-C byte-parity check. `tools/ADSHIM-BUILD.md` — building the
-adshim library. `spice/README.md` — the per-family cell decks.
+`RENESIS-OPTIONS-LIST.md` — every option of both front ends, with its
+default, listed twice: once as the C engine accepts it and once as the Python
+driver does. `renesis.1` — the manual page (`man ./renesis.1`), or
+`renesis.1.txt` for the rendered text. `WEB-UI-HOWTO.md` — the browser
+interface, start to finish. `MACOS-SETUP.md` — the build on Apple Silicon,
+including CUDD. `repo_validate.sh` — check that this checkout built correctly
+on your machine. `PATENTS.md` — the patent position; `LICENSE` — MIT.
 
 ---
 
 ## 17. Worked examples
 
 Five complete workflows, each with the output it actually produces. Every
-command here was executed against a clean copy of this repository; the
-outputs are pasted, not typed. Where a report is long, only the lines under
-discussion are shown.
+command here was executed against a clean extraction; the outputs are
+pasted, not typed. Where a report is long, only the lines under discussion
+are shown.
 
 ### 17.1 A first run, and how to read the report
 
@@ -1093,9 +1224,9 @@ renesis bench/c432.v --tech 2lal      -q --json /tmp/c.json
 PFAL spends more devices than the transmission-gate target and still
 dissipates a third less per cycle — its cross-coupled latch is billed and
 emitted, and NMOS-only pull networks are cheap. 2LAL costs 3.9× tgate:
-that is the price of full pipelining, and the figure is honest — the
-pipeline buffer chains are built in the netlist, not priced as a flat
-term (§6, `--emit-buffers`). Every family emits what it prices;
+that is the price of full pipelining, and since v89.3 the figure is
+honest — the pipeline buffer chains are built in the netlist, not priced
+as a flat term (§6, `--emit-buffers`). Every family emits what it prices;
 the one stated exception is S2LAL's ×2 replication factor, announced in
 `checks.emission_gap` in the JSON record.
 
@@ -1127,8 +1258,8 @@ and took 7.8% off T1 and 5.9% off T2. Three declined, each printing
 `1.0000/1.0000` with its reason — those lines mean the pass ran, searched,
 and refused, which on most circuits is the correct outcome: across the
 twenty-circuit suite the passes fire on a minority and decline on the
-rest. The elimination pass (`--elim`, §7) is not part of
-`--optimize-all`; enable it by name. Budget
+rest. The elimination pass (`--elim`, §7) is deliberately not in
+`--optimize-all` until its twenty-circuit sweep is measured. Budget
 matters: `--wall-s` bounds the searches, and a truncated search is a
 floor, not a result — give real work `--wall-s 1800` or more.
 
@@ -1178,11 +1309,12 @@ reproduces the published ISCAS-89 state counts on 22 of 22 machines.
 
 ### 17.6 From one run to a table
 
-Section 12 builds a sweep with a shell loop over `--json` run records;
-that pattern scales to any table. Generate the parameter column from each
-record's `non_default` and `pass_reports` rather than transcribing it, and
-check `optimization.budget` on every record before using it — a truncated
-run is a floor, not a comparable data point.
+Section 12 builds a sweep with a shell loop; for anything larger, the
+parameterized sweep driver used to produce them
+adds per-arm wall-clock budgets, hard kills, resumable per-cell records,
+and summaries in three formats, and marks every truncated run as a floor.
+Its `--self-check` verifies the driver against the bundle in seconds — run
+it before trusting any long campaign.
 
 ## References
 

@@ -12,7 +12,7 @@
 #
 #  Author:      Mitchell A. Thornton
 #  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
-#  Modified:    2026-08-10  (Renesis v89.11)
+#  Modified:    2026-08-16  (Renesis v92.2)
 #  Created:     Renesis v74.1 (earliest version token in file)
 # ---------------------------------------------------------------------------
 """Adiabatic synthesis local web UI -- the adiabatic counterpart of
@@ -165,7 +165,7 @@ def do_renesis(req):
                             "Graphviz source: dot -Tsvg/-Tpdf "
                             "(brew install graphviz)"
                             if pth.endswith(".dot") else
-                            "netlistsvg (brew install netlistsvg)")
+                            "netlistsvg (npm install -g netlistsvg)")
                     exports.append(dict(
                         name=os.path.basename(pth), tool=tool,
                         b64=base64.b64encode(open(pth, "rb").read()).decode()))
@@ -743,8 +743,9 @@ def main():
     srv = ThreadingHTTPServer(("127.0.0.1", port), H)
     print(f"adiabatic synthesis UI:  http://localhost:{port}   (Ctrl-C to stop)")
     print("open that URL in the browser; do NOT open adiabatic.html as a file")
-    print("dependencies: python3 + matplotlib; optional ABC binary via env ABC= "
-          "for the ASP-DAC baseline column")
+    print("dependencies: python3 only.  matplotlib (pip3 install -r "
+          "requirements.txt) adds the circuit view and the PDF export; "
+          "an ABC binary via env ABC= adds the ASP-DAC baseline column")
     srv.serve_forever()
 
 

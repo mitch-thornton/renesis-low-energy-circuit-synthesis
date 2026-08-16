@@ -34,9 +34,18 @@ xcode-select --install            # if you have not already
 python3 --version                 # 3.11 or newer
 ```
 
-The synthesis core is **pure standard library**. `matplotlib` is
-optional and only used by the browser UIs for circuit diagrams and the
-PDF report (`pip3 install matplotlib` when you get to Stage 2e).
+The synthesis core is **pure standard library** -- `./renesis`,
+`./csrc/renesis` and `csrc/run_tests.sh` all run on a stock Python 3.11
+with nothing installed at all. One package is wanted beyond that, and
+only for pictures: `matplotlib`, for `revsynth.py --pdf` and for the
+browser interfaces' circuit views and PDF export.
+
+```bash
+pip3 install -r requirements.txt   # matplotlib, before Stage 2e
+```
+
+It is the only third-party Python package this repository imports
+anywhere.
 
 **Always export `PYTHONHASHSEED=0`.** Set-iteration order reaches the
 emitted netlist; every recorded number in the Renesis papers was
@@ -154,9 +163,10 @@ python3 scripts_adiabatic/adiabatic_server.py       # http://localhost:8766
 python3 scripts/revsynth_server.py                  # http://localhost:8765
 ```
 
-Both bind `127.0.0.1` only and need `matplotlib` for the diagram and
-the PDF report. ABC is optional; without it the ASP-DAC baseline
-column reports itself unavailable rather than substituting a number.
+Both bind `127.0.0.1` only. They start without `matplotlib`, but the
+circuit view and the PDF export need it, so install it first. ABC is
+optional; without it the ASP-DAC baseline column reports itself
+unavailable rather than substituting a number.
 See `WEB-UI-HOWTO.md` for the full treatment, including starting them
 with ABC and choosing a port.
 

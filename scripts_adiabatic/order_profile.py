@@ -8,8 +8,8 @@
 #
 #  Author:      Mitchell A. Thornton
 #  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
-#  Modified:    2026-08-10  (Renesis v89.11)
-#  Created:     Renesis v89.11 (this cut)
+#  Modified:    2026-08-16  (Renesis v92.2)
+#  Created:     Renesis v89.11 (earliest version token in file)
 # ---------------------------------------------------------------------------
 """Task 3: graded higher-order parity expansion of the collision probability.
 CP = 2^{-m} sum_S (W_S/2^n)^2 = sum_k C_k, C_k = mass at spectral order k = |S|.

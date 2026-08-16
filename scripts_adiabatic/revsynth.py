@@ -12,7 +12,7 @@
 #
 #  Author:      Mitchell A. Thornton
 #  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
-#  Modified:    2026-08-10  (Renesis v89.11)
+#  Modified:    2026-08-16  (Renesis v92.2)
 #  Created:     revsynth 39.0 lineage (pre-dates the Renesis cuts)
 # ---------------------------------------------------------------------------
 __version__ = "39.0"
@@ -3176,10 +3176,32 @@ def run(inp, out=None, pdf=None, mode="auto", checks=256, max_draw=80,
     else:
         raise SystemExit(f"unsupported output extension {ext} (use .real/.tfc)")
     print(f"wrote {out}")
-    pdf = pdf or base + "_rev.pdf"
-    draw_pdf(ckt, pdf, nl.name, stats, max_draw=max_draw,
-             max_lines=max_lines, max_pages=max_pages)
-    print(f"wrote {pdf}")
+    # v91.1: the PDF report is OPTIONAL, and matplotlib is the only
+    # third-party package this repository imports anywhere.  Through v91.0 a
+    # default filename was substituted when --pdf was absent and draw_pdf ran
+    # either way, so a tree without matplotlib could not run this tool AT ALL
+    # -- and the failure landed after the netlist was already on disk, so the
+    # user saw a complete, correct run followed by an unhandled traceback.
+    # Asked for explicitly, a missing matplotlib is now reported the way a
+    # missing ABC is above; not asked for, the report is skipped and the run
+    # says so.  With matplotlib installed the behaviour is unchanged.
+    try:
+        import matplotlib          # noqa: F401
+        have_mpl = True
+    except ImportError:
+        have_mpl = False
+    if pdf is not None and not have_mpl:
+        raise SystemExit("--pdf needs matplotlib, which is not installed "
+                         "(pip3 install -r requirements.txt).  The netlist "
+                         f"{out} was written and is complete.")
+    if have_mpl:
+        pdf = pdf or base + "_rev.pdf"
+        draw_pdf(ckt, pdf, nl.name, stats, max_draw=max_draw,
+                 max_lines=max_lines, max_pages=max_pages)
+        print(f"wrote {pdf}")
+    else:
+        print("no PDF report: matplotlib is not installed "
+              "(pip3 install -r requirements.txt)")
     return ckt, stats
 
 

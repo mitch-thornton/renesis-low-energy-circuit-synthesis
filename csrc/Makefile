@@ -6,7 +6,7 @@
 #
 #  Author:      Mitchell A. Thornton
 #  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
-#  Modified:    2026-08-10  (Renesis v89.11)
+#  Modified:    2026-08-16  (Renesis v92.2)
 #  Created:     Renesis v83 (earliest version token in file)
 # ---------------------------------------------------------------------------
 # ============================================================================
@@ -38,7 +38,13 @@ else
   MARCH :=
 endif
 
-CFLAGS  = $(STD) $(WARN) $(OPT) $(MARCH) $(EXTRA_CFLAGS)
+# -ffp-contract=off is REQUIRED on EVERY translation unit, not only the
+# rsynth/renesis objects: float accumulation must match Python's (no FMA
+# fusion) or the area-flow / t-aware covers can diverge.  Before v91.1 this
+# flag lived only in FPFLAGS, which reaches $(RSYNTH_OBJ) and $(RENESIS_OBJ)
+# but not $(OBJ) -- 12 of 44 compilations carried it.  Hoisting it into
+# CFLAGS closes the gap; FPFLAGS keeps only its include path.
+CFLAGS  = $(STD) $(WARN) $(OPT) $(MARCH) -ffp-contract=off $(EXTRA_CFLAGS)
 
 CORE = vsim.c vsim_tags.c vsim_spectral.c vsim_quad.c vsim_cubic.c \
        vsim_brank.c vsim_block.c \
@@ -66,7 +72,7 @@ RENESIS_SRC = $(filter-out rsynth_main.c,$(RSYNTH_SRC)) \
               ropt_elim.c ropt_davio.c ropt_win.c ropt_bdec.c renesis_main.c
 RENESIS_OBJ = $(RENESIS_SRC:.c=.o)
 RSYNTH_HDR = rsynth.h ../tools/adshim/adshim.h
-FPFLAGS    = -ffp-contract=off -I../tools/adshim
+FPFLAGS    = -I../tools/adshim
 ADSHIM_A   = ../tools/adshim/libadshim.a
 # CUDD_DIR is an override so a locally built CUDD (e.g. arm64) can be used
 # instead of the vendored x86-64 archive.  Matches tools/adshim.

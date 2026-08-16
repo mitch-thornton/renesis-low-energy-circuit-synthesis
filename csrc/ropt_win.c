@@ -35,11 +35,24 @@
 #include "ropt_cpyset.h"
 
 #include <math.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
 static void *xmalloc_(size_t n) {
+    /* v91.2: an explicit upper bound, so the compiler can PROVE the size is
+     * sane.  Callers compute sizes as sizeof(T) * (size_t)count with an int
+     * count; GCC's value-range propagation cannot rule out a negative count
+     * several frames up, infers a range near SIZE_MAX, and warns
+     * -Walloc-size-larger-than= on every such call -- ten of them across this
+     * tree on any recent GCC, on both architectures, silent under Apple
+     * clang.  The check is not cosmetic: an overflowed size now aborts here,
+     * named, instead of reaching malloc as an absurd request. */
+    if (n > (size_t)PTRDIFF_MAX) {
+        fprintf(stderr, "ropt_win: allocation size overflow\n");
+        exit(2);
+    }
     void *p = malloc(n ? n : 1);
     if (!p) { fprintf(stderr, "ropt_win: out of memory\n"); exit(2); }
     return p;
@@ -89,9 +102,25 @@ static int rw_gf2_inv(const int *rows, int n, int *inv) {
     return 1;
 }
 
+/* v91.3.  Every 2^w scratch buffer in this file is 256 bytes, so w <= 8, and
+ * every caller derives w from the window width cap, which is 8.  That bound
+ * lives in the CALLER, so some GCC versions cannot prove it at the use site
+ * and warn that a memcpy size may be enormous (-Wstringop-overflow= through
+ * __builtin___memcpy_chk; observed on an Ubuntu GCC under WSL, not on 13.3).
+ * Stating the bound makes the range provable on every compiler, and turns a
+ * future silent overrun -- if anyone ever raises the cap -- into a loud
+ * failure instead of a corrupted buffer. */
+static void rw_check_w(int w, const char *who) {
+    if (w < 0 || w > 8) {
+        fprintf(stderr, "ropt_win: %s width %d out of range (max 8)\n", who, w);
+        exit(2);
+    }
+}
+
 /* revsynth._anf: Mobius transform; monomial masks ascending. */
 static int rw_anf(const unsigned char *tt, int w, int *monos) {
     unsigned char a[256];
+    rw_check_w(w, "rw_anf");
     int N = 1 << w, n = 0;
     memcpy(a, tt, (size_t)N);
     for (int i = 0; i < w; i++)
@@ -181,6 +210,7 @@ static void rw_region_tts(const RNet *nl, const int *list, int nlist,
                           const int *leaves, int w,
                           const int *roots, int nroots,
                           unsigned char **tts, int *val) {
+    rw_check_w(w, "2^w buffer");
     int N = 1 << w;
     for (int x = 0; x < N; x++) {
         for (int k = 0; k < w; k++) val[leaves[k]] = (x >> k) & 1;
@@ -380,6 +410,7 @@ static int rw_local_score(const unsigned char *tt, int w, const int *A,
     int ainv[32];
     if (!rw_gf2_inv(A, w, ainv)) return -1;            /* unreachable in search */
     unsigned char g[256];
+    rw_check_w(w, "2^w buffer");
     int N = 1 << w;
     for (int u = 0; u < N; u++)
         g[u] = tt[rw_apply_vec(ainv, w, u ^ cm)];
@@ -987,6 +1018,7 @@ static double mw_score(const MwWin *win, const int *A, int cm, int cap) {
     if (!rw_gf2_inv(A, w, ainv)) return NAN;
     unsigned char g[256];
     int monos[256];
+    rw_check_w(w, "2^w buffer");
     int N = 1 << w;
     unsigned char dict[256];
     memset(dict, 0, sizeof dict);
@@ -1190,6 +1222,7 @@ RNet *rw_apply_window(const RNet *cur, const RNet *ext, const RwWin *win,
     int ainv[32];
     rw_gf2_inv(A, w, ainv);
     unsigned char g[256];
+    rw_check_w(w, "2^w buffer");
     int N = 1 << w;
     for (int u = 0; u < N; u++)
         g[u] = win->tt[rw_apply_vec(ainv, w, u ^ cm)];
@@ -1250,6 +1283,7 @@ RNet *mw_apply_window(const RNet *cur, const RNet *ext, const MwWin *win,
     int w = win->w;
     int ainv[32];
     rw_gf2_inv(A, w, ainv);
+    rw_check_w(w, "2^w buffer");
     int N = 1 << w;
     /* transformed monos per root (roots sorted; order-free downstream) */
     unsigned char g[256];

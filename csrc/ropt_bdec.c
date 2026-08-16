@@ -20,11 +20,12 @@
  *
  *  Author:      Mitchell A. Thornton
  *  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
- *  Created:     Renesis v90.3 (this cut)
+ *  Created:     Renesis v90.3 (earliest version token in file)
  * --------------------------------------------------------------------------- */
 #define _POSIX_C_SOURCE 200809L
 #include <math.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -55,11 +56,29 @@ static double *bdec_tags_drv(const RNet *sub, int trials, int seed,
 /* ------------------------------------------------------------------ util */
 
 static void *xmalloc_(size_t n) {
+    /* v91.2: an explicit upper bound, so the compiler can PROVE the size is
+     * sane.  Callers compute sizes as sizeof(T) * (size_t)count with an int
+     * count; GCC's value-range propagation cannot rule out a negative count
+     * several frames up, infers a range near SIZE_MAX, and warns
+     * -Walloc-size-larger-than= on every such call -- ten of them across this
+     * tree on any recent GCC, on both architectures, silent under Apple
+     * clang.  The check is not cosmetic: an overflowed size now aborts here,
+     * named, instead of reaching malloc as an absurd request. */
+    if (n > (size_t)PTRDIFF_MAX) {
+        fprintf(stderr, "ropt_bdec: allocation size overflow\n");
+        exit(2);
+    }
     void *p = malloc(n ? n : 1);
     if (!p) { fprintf(stderr, "ropt_bdec: out of memory\n"); exit(2); }
     return p;
 }
 static void *xcalloc_(size_t n, size_t s) {
+    /* v91.2: the same bound as xmalloc_ above, for the same reason -- and on
+     * the PRODUCT, since that is the object calloc is asked for. */
+    if (s && (n > (size_t)PTRDIFF_MAX / s)) {
+        fprintf(stderr, "ropt_bdec: allocation size overflow\n");
+        exit(2);
+    }
     void *p = calloc(n ? n : 1, s);
     if (!p) { fprintf(stderr, "ropt_bdec: out of memory\n"); exit(2); }
     return p;
@@ -296,20 +315,285 @@ static void copy_core_renamed(RNet *dst, const RNet *nl, int *renamed_out) {
     free(po_of); free(map); free(ins); free(driven);
 }
 
+
+/* ===================================================================== */
+/* v91.2. Affine output forms, read STRUCTURALLY off the cone.           */
+/*                                                                        */
+/* Byte-for-byte mirror of linmap_kit.structural_affine / affine_row_gates */
+/* / core_netlist.  See the Python for the reasoning; the short version is */
+/* that through v91.1 a row combining two outputs was emitted as the XOR   */
+/* of their two FINISHED cones, so the cancellation the re-encoding exists */
+/* to create was left for the mapper to rediscover inside a K-cut, and     */
+/* candidates that dominate when realised algebraically were priced as     */
+/* regressions and refused.                                               */
+/*                                                                        */
+/* The test is STRUCTURAL and therefore EXACT -- no sampling, no RNG, no   */
+/* tolerance, which is what lets the two implementations owe each other    */
+/* byte identity.  A cone with anything other than XOR/XNOR/NOT/BUF over   */
+/* the primary inputs is simply not reported and the caller falls back to  */
+/* the v91.1 construction.                                                 */
+/* ===================================================================== */
+
+#define AW_PREFIX "lmaw"
+
+typedef struct {
+    int nw;                 /* words per support bitset (over n_in)        */
+    unsigned char *ok;      /* per OUTPUT: is the cone affine              */
+    unsigned char *cst;     /* per OUTPUT: the constant term               */
+    uint64_t *sup;          /* per OUTPUT: nw words, bit k = input index k  */
+} AffOut;
+
+static void aff_free(AffOut *a) {
+    if (!a) return;
+    free(a->ok); free(a->cst); free(a->sup); free(a);
+}
+
+static int aff_popcount(const uint64_t *r, int nw) {
+    int w = 0;
+    for (int k = 0; k < nw; k++) {
+        uint64_t v = r[k];
+        while (v) { v &= v - 1; w++; }
+    }
+    return w;
+}
+
+/* Affine form of every primary output, or ok=0 where the cone is not.
+ * out_i = cst XOR (+)_{k in sup} in_k, with `sup` over INPUT INDICES. */
+static AffOut *bdec_affine_forms(const RNet *nl) {
+    int n_in = nl->n_in, n_out = nl->n_out, nn = nl->n_nets;
+    int nw = (n_in + 63) / 64; if (nw < 1) nw = 1;
+    AffOut *a = xmalloc_(sizeof *a);
+    a->nw = nw;
+    a->ok = xcalloc_((size_t)(n_out ? n_out : 1), 1);
+    a->cst = xcalloc_((size_t)(n_out ? n_out : 1), 1);
+    a->sup = xcalloc_((size_t)(n_out ? n_out : 1) * (size_t)nw,
+                      sizeof(uint64_t));
+    /* per-NET working state */
+    unsigned char *nok = xcalloc_((size_t)(nn ? nn : 1), 1);
+    unsigned char *ncst = xcalloc_((size_t)(nn ? nn : 1), 1);
+    uint64_t *nsup = xcalloc_((size_t)(nn ? nn : 1) * (size_t)nw,
+                              sizeof(uint64_t));
+    for (int k = 0; k < n_in; k++) {
+        int v = nl->inputs[k];
+        nok[v] = 1;
+        nsup[(size_t)v * (size_t)nw + (size_t)(k >> 6)] |=
+            (uint64_t)1 << (k & 63);
+    }
+    for (int t = 0; t < nl->n_topo; t++) {
+        const RGate *g = &nl->gates[nl->topo[t]];
+        if (g->func != RF_XOR && g->func != RF_XNOR &&
+            g->func != RF_NOT && g->func != RF_BUF) continue;
+        int good = 1;
+        for (int k = 0; k < g->nin; k++)
+            if (!nok[g->ins[k]]) { good = 0; break; }
+        if (!good) continue;
+        unsigned char c = 0;
+        uint64_t *dst = nsup + (size_t)g->out * (size_t)nw;
+        for (int w = 0; w < nw; w++) dst[w] = 0;
+        for (int k = 0; k < g->nin; k++) {
+            const uint64_t *s = nsup + (size_t)g->ins[k] * (size_t)nw;
+            c = (unsigned char)(c ^ ncst[g->ins[k]]);
+            for (int w = 0; w < nw; w++) dst[w] ^= s[w];
+        }
+        if (g->func == RF_XNOR || g->func == RF_NOT) c ^= 1;
+        ncst[g->out] = c;
+        nok[g->out] = 1;
+    }
+    for (int i = 0; i < n_out; i++) {
+        int v = nl->outputs[i];
+        if (!nok[v]) continue;
+        a->ok[i] = 1;
+        a->cst[i] = ncst[v];
+        memcpy(a->sup + (size_t)i * (size_t)nw,
+               nsup + (size_t)v * (size_t)nw,
+               (size_t)nw * sizeof(uint64_t));
+    }
+    free(nok); free(ncst); free(nsup);
+    return a;
+}
+
+/* Balanced XOR tree over `sigs` with the constant folded into the LAST
+ * gate's polarity: XNOR for XOR, NOT for BUF at weight one.  Same reduction
+ * shape and the same fresh-wire discipline as xor_row_gates_c, so the two
+ * emitters cannot drift. */
+static void affine_row_gates_c(RNet *out, int *sigs, int nsig, int cst,
+                               int out_net, const char *wire_prefix,
+                               int *counter) {
+    if (nsig == 1) {
+        rn_add_gate(out, out_net, cst ? RF_NOT : RF_BUF, sigs, 1);
+        return;
+    }
+    int *level = xmalloc_(sizeof(int) * (size_t)nsig);
+    memcpy(level, sigs, sizeof(int) * (size_t)nsig);
+    int nl_ = nsig;
+    char wname[64];
+    while (nl_ > 2) {
+        int *nxt = xmalloc_(sizeof(int) * (size_t)nl_);
+        int nn = 0;
+        for (int i = 0; i + 1 < nl_; i += 2) {
+            snprintf(wname, sizeof wname, "%s%d", wire_prefix, (*counter)++);
+            int w = rn_net(out, wname);
+            int ins[2] = { level[i], level[i + 1] };
+            rn_add_gate(out, w, RF_XOR, ins, 2);
+            nxt[nn++] = w;
+        }
+        if (nl_ % 2) nxt[nn++] = level[nl_ - 1];
+        free(level);
+        level = nxt;
+        nl_ = nn;
+    }
+    int ins[2] = { level[0], level[1] };
+    rn_add_gate(out, out_net, cst ? RF_XNOR : RF_XOR, ins, 2);
+    free(level);
+}
+
 /* core_netlist: N_h = renamed core + B bank; outputs lmh0..lmh{m-1}. */
+/* ===================================================================== v91.3
+ * The pre-flight screen.
+ *
+ * WHY PAIRS ARE ENOUGH.  The search is a hill climb over ELEMENTARY row
+ * additions, accepted one at a time.  From B = I every row has weight 1, so
+ * the first accepted move can only produce a row of weight 2; a weight-3 row
+ * is reachable only by first ACCEPTING a weight-2 one.  bdec_core_netlist
+ * realises a row only when its members are all structurally affine and their
+ * supports cancel to something strictly thinner than the thinnest of them.
+ * So round 1 can realise a row IFF some PAIR of affine outputs collapses --
+ * and if round 1 realises nothing, no later round exists to reach a wider
+ * row.  The screen is therefore exact with respect to what the search can
+ * reach, and costs O(m^2) word operations instead of a hill climb.
+ *
+ * WHAT IT ASSUMES.  With no row realised, every candidate is the original
+ * outputs plus a generic XOR bank plus a decoder bank -- strictly more
+ * hardware than the identity.  The screen concludes "cannot accept" from
+ * "cannot realise", which assumes strictly more hardware never prices below
+ * identity.  That is not a theorem here, because the cover is a heuristic;
+ * it is measured instead, by the gated-vs-ungated equality cell in
+ * validate_all.sh.  --option prescreen=false turns the screen off.
+ *
+ * Returns 1 when the pass provably cannot realise a row, 0 otherwise. */
+static int bdec_screen(const RNet *nl, char *why, size_t whyn) {
+    AffOut *a = bdec_affine_forms(nl);
+    int m = nl->n_out, nw = a->nw;
+    int n_aff = 0;
+    int *idx = xmalloc_(sizeof(int) * (size_t)(m > 0 ? m : 1));
+    int *wgt = xmalloc_(sizeof(int) * (size_t)(m > 0 ? m : 1));
+    for (int i = 0; i < m; i++) {
+        if (!a->ok[i]) continue;
+        int w = aff_popcount(a->sup + (size_t)i * (size_t)nw, nw);
+        if (w < 1) continue;              /* constant output: nothing to fold */
+        idx[n_aff] = i; wgt[n_aff] = w; n_aff++;
+    }
+    int screened = 0;
+    if (n_aff < 2) {
+        snprintf(why, whyn,
+                 "screened: %d structurally affine output(s), a row needs 2 "
+                 "(--option prescreen=false to search anyway)", n_aff);
+        screened = 1;
+    } else {
+        int hit = 0;
+        for (int p = 0; p < n_aff && !hit; p++)
+            for (int q = p + 1; q < n_aff; q++) {
+                const uint64_t *u = a->sup + (size_t)idx[p] * (size_t)nw;
+                const uint64_t *v = a->sup + (size_t)idx[q] * (size_t)nw;
+                int d = 0;
+                for (int k = 0; k < nw; k++) {
+                    uint64_t x = u[k] ^ v[k];
+                    while (x) { x &= x - 1; d++; }
+                }
+                int lo = wgt[p] < wgt[q] ? wgt[p] : wgt[q];
+                if (d > 0 && d < lo) { hit = 1; break; }
+            }
+        if (!hit) {
+            snprintf(why, whyn,
+                     "screened: no pair of %d affine outputs cancels "
+                     "(--option prescreen=false to search anyway)", n_aff);
+            screened = 1;
+        }
+    }
+    free(idx); free(wgt); aff_free(a);
+    return screened;
+}
+
 static RNet *bdec_core_netlist(const RNet *nl, const BMat *B) {
     int m = nl->n_out;
     char nbuf[64], tname[600];
     snprintf(tname, sizeof tname, "%s_bh", nl->name ? nl->name : "net");
     RNet *out = rn_new(tname);
-    int *ren = xmalloc_(sizeof(int) * (size_t)(m ? m : 1));
+    int *ren = xcalloc_((size_t)(m ? m : 1), sizeof(int));  /* v91.2: calloc, not malloc -- the fill loop is bounded by
+                                                       * a count the compiler cannot see is positive */
     copy_core_renamed(out, nl, ren);
-    int *h = xmalloc_(sizeof(int) * (size_t)(m ? m : 1));
+    int *h = xcalloc_((size_t)(m ? m : 1), sizeof(int));  /* v91.2: calloc, not malloc -- the fill loop is bounded by
+                                                       * a count the compiler cannot see is positive */
     for (int i = 0; i < m; i++) {
         snprintf(nbuf, sizeof nbuf, H_FMT, i);
         h[i] = rn_net(out, nbuf);
     }
-    bank_gates_c(out, B, ren, m, h, HW_PREFIX);
+    /* v91.2: rows whose combination CANCELS are emitted over the primary
+     * inputs, so the mapper sees the cancellation instead of two finished
+     * cones.  Three conditions, each load-bearing (see linmap_kit):
+     *   weight >= 2   -- a weight-1 row IS an original output; re-deriving it
+     *                    would rebuild a cone that already exists, and this
+     *                    is what keeps B = I byte-identical to v91.1;
+     *   all affine    -- otherwise there is no algebraic form to take;
+     *   sparser       -- the symmetric difference must be strictly thinner
+     *                    than the thinnest support it came from, or the row
+     *                    does not cancel and a fresh tree is pure cost.
+     * Rows the original netlist still needs keep their gates; anything no
+     * row reaches is unreachable from h and never priced. */
+    AffOut *af = bdec_affine_forms(nl);
+    unsigned char *done = xcalloc_((size_t)(m ? m : 1), 1);
+    uint64_t *acc = xcalloc_((size_t)af->nw, sizeof(uint64_t));
+    int *asig = xcalloc_((size_t)(nl->n_in ? nl->n_in : 1), sizeof(int));
+    int acount = 0;
+    for (int i = 0; i < m; i++) {
+        int wgt = 0, allaff = 1, minw = 0;
+        for (int j = 0; j < m; j++) {
+            if (!bm_get(B, i, j)) continue;
+            wgt++;
+            if (!af->ok[j]) { allaff = 0; break; }
+            int wj = aff_popcount(af->sup + (size_t)j * (size_t)af->nw, af->nw);
+            if (!minw || wj < minw) minw = wj;
+        }
+        if (wgt < 2 || !allaff) continue;
+        int cst = 0;
+        for (int w = 0; w < af->nw; w++) acc[w] = 0;
+        for (int j = 0; j < m; j++) {
+            if (!bm_get(B, i, j)) continue;
+            cst ^= af->cst[j];
+            const uint64_t *s = af->sup + (size_t)j * (size_t)af->nw;
+            for (int w = 0; w < af->nw; w++) acc[w] ^= s[w];
+        }
+        int sw = aff_popcount(acc, af->nw);
+        if (!sw || sw >= minw) continue;
+        int ns = 0;
+        for (int k = 0; k < nl->n_in; k++)
+            if ((acc[k >> 6] >> (k & 63)) & 1u) {
+                int nid = rn_find(out, nl->nname[nl->inputs[k]]);
+                if (nid < 0) nid = rn_net(out, nl->nname[nl->inputs[k]]);
+                asig[ns++] = nid;
+            }
+        affine_row_gates_c(out, asig, ns, cst, h[i], AW_PREFIX, &acount);
+        done[i] = 1;
+    }
+    int nrem = 0;
+    for (int i = 0; i < m; i++) if (!done[i]) nrem++;
+    if (nrem) {
+        BMat *sub = bm_new(m);
+        int *rout = xcalloc_((size_t)nrem, sizeof(int));
+        int k = 0;
+        for (int i = 0; i < m; i++) {
+            if (done[i]) continue;
+            memcpy(bm_row(sub, k), bm_row(B, i),
+                   (size_t)B->words * sizeof(uint64_t));
+            rout[k] = h[i];
+            k++;
+        }
+        int saved = sub->m; sub->m = nrem;
+        bank_gates_c(out, sub, ren, m, rout, HW_PREFIX);
+        sub->m = saved;
+        bm_free(sub); free(rout);
+    }
+    free(acc); free(asig); free(done); aff_free(af);
     for (int i = 0; i < m; i++) rn_add_output(out, out->nname[h[i]]);
     free(ren); free(h);
     if (rn_finalize(out) != 0) {
@@ -333,7 +617,8 @@ static RNet *bdec_decoder_named(const RNet *nl, const BMat *binv,
         if (bm_row_weight(binv, i) != 1) kept++;
     *n_kept_out = kept;
     RNet *out = rn_new("bdec");
-    int *h = xmalloc_(sizeof(int) * (size_t)(m ? m : 1));
+    int *h = xcalloc_((size_t)(m ? m : 1), sizeof(int));  /* v91.2: calloc, not malloc -- the fill loop is bounded by
+                                                       * a count the compiler cannot see is positive */
     for (int i = 0; i < m; i++) {
         snprintf(nbuf, sizeof nbuf, H_FMT, i);
         rn_add_input(out, nbuf);
@@ -341,7 +626,8 @@ static RNet *bdec_decoder_named(const RNet *nl, const BMat *binv,
     }
     /* rows kept in order; aliases record their h source */
     BMat *sub = kept ? bm_new(m) : NULL;   /* rows: kept x m (reuse width) */
-    int *kout = xmalloc_(sizeof(int) * (size_t)(kept ? kept : 1));
+    int *kout = xcalloc_((size_t)(kept ? kept : 1), sizeof(int));  /* v91.2: calloc, not malloc -- the fill loop is bounded by
+                                                       * a count the compiler cannot see is positive */
     int kr = 0;
     for (int i = 0; i < m; i++) {
         int w = bm_row_weight(binv, i);
@@ -378,10 +664,13 @@ static RNet *bdec_composed_named(const RNet *nl, const BMat *B,
     char nbuf[64], tname[600];
     snprintf(tname, sizeof tname, "%s_bdec", nl->name ? nl->name : "net");
     RNet *out = rn_new(tname);
-    int *ren = xmalloc_(sizeof(int) * (size_t)(m ? m : 1));
+    int *ren = xcalloc_((size_t)(m ? m : 1), sizeof(int));  /* v91.2: calloc, not malloc -- the fill loop is bounded by
+                                                       * a count the compiler cannot see is positive */
     copy_core_renamed(out, nl, ren);
-    int *h = xmalloc_(sizeof(int) * (size_t)(m ? m : 1));
-    int *y = xmalloc_(sizeof(int) * (size_t)(m ? m : 1));
+    int *h = xcalloc_((size_t)(m ? m : 1), sizeof(int));  /* v91.2: calloc, not malloc -- the fill loop is bounded by
+                                                       * a count the compiler cannot see is positive */
+    int *y = xcalloc_((size_t)(m ? m : 1), sizeof(int));  /* v91.2: calloc, not malloc -- the fill loop is bounded by
+                                                       * a count the compiler cannot see is positive */
     for (int i = 0; i < m; i++) {
         snprintf(nbuf, sizeof nbuf, H_FMT, i);
         h[i] = rn_net(out, nbuf);
@@ -691,6 +980,15 @@ int ropt_bdec_run(const RNet *nl, const RoptBdecCfg *cfg, RoptBdecRep *rep,
                  "fewer than 2 outputs: no re-encoding exists");
         rep->ratio[0] = rep->ratio[1] = 1.0;
         BMat *I = bm_identity(m > 0 ? m : 1);
+        rep->b_key = bm_key(I);
+        bm_free(I);
+        rep->wall_s = (double)(clock() - t0) / CLOCKS_PER_SEC;
+        return 0;
+    }
+
+    if (cfg->prescreen && bdec_screen(nl, rep->verdict, sizeof rep->verdict)) {
+        rep->ratio[0] = rep->ratio[1] = 1.0;
+        BMat *I = bm_identity(m);
         rep->b_key = bm_key(I);
         bm_free(I);
         rep->wall_s = (double)(clock() - t0) / CLOCKS_PER_SEC;

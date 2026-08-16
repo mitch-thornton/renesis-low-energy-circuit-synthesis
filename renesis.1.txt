@@ -1,0 +1,441 @@
+RENESIS(1)                       User Commands                      RENESIS(1)
+
+NAME
+       renesis  -  energy-aware  logic  synthesis for adiabatic and reversible
+       technologies
+
+SYNOPSIS
+       The C engine. This is the fast one, and it is  what  most  runs  should
+       use.
+
+       csrc/renesis [options] netlist
+       csrc/renesis --convert out.fmt [options] netlist
+       csrc/renesis --list-tech|--show-options|--help
+
+       The Python driver. Slower, and it owns the surfaces the engine does not
+       have.  PYTHONHASHSEED=0 is a determinism requirement and the driver re-
+       fuses  to  start without it; the renesis wrapper script sets it, so ex-
+       port it only when calling the module directly.
+
+       export PYTHONHASHSEED=0
+       renesis [options] netlist
+       python3 scripts_adiabatic/renesis.py [options] netlist
+       renesis --convert out.fmt [options] netlist
+       renesis analyze --relation file [options]
+       renesis ui
+       renesis --list-tech|--show-options|--help
+
+DESCRIPTION
+       renesis maps a combinational netlist onto a target technology  and  re-
+       ports  the  energy the mapped network dissipates per cycle. It is aimed
+       at families whose cost is not  counted  in  gates:  adiabatic  and  re-
+       versible  logic,  where the charge returned to the power clock, the se-
+       ries depth of a conducting path and the number of buffer stages  decide
+       the result.
+
+       The flow is a fixed sequence of stages:
+
+           parse  -> [netprep] -> [re-synthesis] -> tag sweep -> cover and map
+           -> buffer insertion -> energy report
+
+       Two energy tables are reported for every run.  T1 is the uncapped  dis-
+       sipation of the mapped network.  T2 is the dissipation after the series
+       bound of the target family has been enforced by buffer insertion. Every
+       optimization in the tool is gated on both: a candidate is accepted only
+       when  it  improves  one table and worsens neither. A pass can therefore
+       consume runtime and hand the netlist back unchanged, and  that  outcome
+       is reported rather than hidden.
+
+       Two  front  ends  exist  and are kept in agreement by a byte-level con-
+       tract. The  orchestration  driver  (renesis,  a  shell  wrapper  around
+       scripts_adiabatic/renesis.py)   sequences   the  stages  and  owns  the
+       multi-run surfaces. The C engine (csrc/renesis) implements  the  stages
+       and  is roughly an order of magnitude faster. Both read the same option
+       table and the same technology description, so a setting means the  same
+       thing on either. Options that only the driver can honour are refused by
+       name  in  the  engine rather than silently ignored; see PARITY BOUNDARY
+       below.
+
+       Every run is deterministic.  PYTHONHASHSEED=0 is required by the driver
+       and asserted at startup.
+
+ACCEPTED INPUT
+       Verilog (.v), ISCAS (.isc), PLA (.pla), AIGER  (.aig,  .aag),  ISCAS-89
+       bench  (.bench) and BLIF (.blif).  The driver accepts all of these; the
+       engine accepts .v, .isc, .pla, .aig and .aag.
+
+OPTIONS
+       Every option in the table can be set two ways: with its dedicated  flag
+       where  one  exists,  or with --option NAME=VALUE for any option at all.
+       The complete table, with defaults and a description of each, is in REN-
+       ESIS-OPTIONS-LIST.md, which gives it twice: once as the engine  accepts
+       it  and  once  as the driver accepts it. The options most runs need are
+       listed here.
+
+       Most of the dedicated flags below exist on the driver only. On the  en-
+       gine, use the --option NAME=VALUE form instead; see PARITY BOUNDARY for
+       the exact split.
+
+   Target
+       --tech name
+              Target  technology,  read from config/technology/name.json.  De-
+              fault tgate_sl6.
+
+       --list-tech
+              List the available technologies and exit.
+
+       --tech-dir dir
+              Read technology descriptions from dir instead of the shipped di-
+              rectory.
+
+   Covering and mapping
+       --k n  Cut size for the K-feasible cover, 4 to 16. Default 12.
+
+       --cover mode
+              tech (default) prices a cover against the technology cost model;
+              switching prices it against estimated switching activity.
+
+       --route mode
+              auto(default), shallow or structural.
+
+       --cap n
+              Buffer-insertion cap: the longest series chain permitted  before
+              a buffer is inserted. Defaults to the target family's own series
+              limit.
+
+       --tag-trials n
+              Monte-Carlo trials in the activity sweep. Default 4000.
+
+   Re-synthesis passes
+       All  are  off  unless  asked  for, because a default run is meant to be
+       fast.
+
+       --netprep
+              Structural preprocessing before covering: hashing, balancing and
+              local rewriting.
+
+       --davio
+              Affine-cut (Davio) extraction: a cut that  is  affine  in  every
+              variable is re-emitted as an XOR tree.
+
+       --elim mode
+              Bounded  elimination  and  algebraic  extraction: none(default),
+              single or both.  The pre-v89.2 spelling --factor still works.
+
+       --prefix
+              Parallel-prefix re-synthesis of adder-like structure.
+
+       --linwin ,  --mowin
+              Interior affine-window re-synthesis, single- and multi-output.
+
+       --bdec Linear pre-filter: a global affine  re-encoding  of  the  output
+              space,  realized  as  a decoder network at the boundary. See THE
+              LINEAR PRE-FILTER below.
+
+       --optimize-all
+              Enable --davio, --prefix, --linwin and --mowin.  Not --bdec.
+
+       --passes n
+              Re-window passes per optimization, or a  per-pass  map  such  as
+              davio=3,elim=1.
+
+       --price-cap n
+              Candidates priced per pass. Default 800.
+
+       --no-prescreen
+              Turn  off  the  pre-flight  screen.  By  default,  before a pass
+              searches, a cheap structural test asks whether  the  pass  could
+              construct  any  candidate  at all on this netlist; when it could
+              not, the pass reports a screened verdict  naming  the  condition
+              that failed instead of searching. The screen is a necessary con-
+              dition  on candidate existence, so the mapped result is the same
+              either way and only the runtime  differs.  On  the  engine,  use
+              --option prescreen=false.
+
+       These  passes  are  not free. On a 518-gate circuit a default run takes
+       tens of seconds, --davio adds tens of seconds more,  and  --linwin  can
+       add several minutes.  RENESIS-MANUAL.md carries the measured table.
+
+   Cut-size ladder
+       --k-ladder list
+              Run  the covering stage at each K in list, for example 12,8,6,4.
+              The first rung is the  incumbent  and  always  completes;  later
+              rungs are priced and accepted only under the acceptance rule, so
+              the  ladder  cannot  return something worse than its first rung.
+              Empty (the default) means off.
+
+       --k-ladder-s s
+              Wall-clock budget in seconds for the rungs after  the  first.  0
+              means no budget.
+
+       --accept rule
+              Rung  acceptance:  both (default) requires an improvement on one
+              energy table and no regression on the other;  t2  accepts  on  a
+              capped-table improvement alone. Applies to the ladder only.
+
+   Output
+       -o base
+              Write  the  result as base.*: the technology-independent netlist
+              and its statistics, and the technology-mapped  netlist  and  its
+              statistics.
+
+       --out-format fmt
+              Format for the independent netlist. Default blif.
+
+       --verilog-style style
+              cells(default), iscas or assign.
+
+       --json file
+              Write  the  full  run record, including every non-default option
+              and every pass verdict, as JSON.
+
+       --schematic base
+              Write  visualization  files:  base_independent.dot   (Graphviz),
+              base_independent.json (Yosys JSON, which netlistsvg renders as a
+              gate-level schematic) and base_mapped.dot with blocks colored by
+              power-clock  phase.  Matching .svg files are written when dot or
+              netlistsvg are on PATH.
+
+       --spice-gen base
+              Write base.sp, an ngspice deck of the mapped network. The device
+              models are stubs, so a  transient  validates  function  and  the
+              clocking discipline, not the tool's energy figures.
+
+   Drive model
+       --pi-drive name
+              uniform (default), saif or transition-relation.  The drive model
+              is  recorded on every figure, because the activity tags feed the
+              cover: a workload-driven result is a different circuit, not  the
+              same circuit measured differently.
+
+       --saif file
+              Read per-input probability and activity from a SAIF file.
+
+       --saif-cycles n, --saif-period p
+              Convert  SAIF  toggle  counts  to per-cycle activity, either di-
+              rectly or by dividing the duration by p.
+
+   General
+       --option NAME=VALUE
+              Set any option from the table. Repeatable.
+
+       --options file
+              Use a different option table.
+
+       --wall-s s
+              Wall-clock budget honoured by the search kits.
+
+       --net-activity
+              Measure per-net toggle rates. Reported, never priced.
+
+       --no-check
+              Skip the converter and round-trip checks.
+
+       --show-options
+              Print the resolved option set and exit. Use this to see  exactly
+              what a command line resolves to before spending the runtime.
+
+       -q     Quiet.
+
+       -h, --help
+              Print usage and exit.
+
+MODES
+       Besides synthesis, the driver has three other modes.
+
+       --convert out.fmt
+              Translation  only,  no  synthesis. The emitted file is re-parsed
+              and equivalence-checked against the input, so a  converter  that
+              quietly  renames or drops something fails here rather than down-
+              stream.  --no-check skips that.  Writes .blif,  .v,  .bench  and
+              .pla.
+
+       analyze
+              Treat  a  sequential machine given as a transition relation as a
+              Markov  chain  and  report  the  reachable  set,  absorbing  and
+              dead-end  states,  recurrent  classes,  eccentricity from reset,
+              and, when the structure permits it, the stationary law  and  the
+              per-bit tags. A machine that halts gets its precondition failure
+              reported  instead of an average.  renesis analyze --help for the
+              full list.
+
+       ui     Start the synthesis server on a free port and  open  a  browser.
+              Ctrl-C  stops  it. The page's option panel is generated from the
+              option table, so it cannot disagree with the  command  line.  On
+              macOS, renesis-ui.command does the same from Finder.
+
+THE LINEAR PRE-FILTER
+       --bdec  searches  for an invertible matrix B over GF(2) that re-encodes
+       the output space, maps the re-encoded function, and  realizes  the  in-
+       verse as a decoder network at the boundary. It pays only where the cir-
+       cuit's  outputs are affine functions of the inputs whose supports over-
+       lap enough that a combination is cheaper to build than the outputs  are
+       separately:  syndrome  formers, Gray and binary code converters, parity
+       trees and similar boundary logic. It is  correctly  inert  on  circuits
+       without  that structure, including every circuit in both shipped bench-
+       mark sets, and the run says so rather than reporting a  change  it  did
+       not make. Tuned with --option bdec_wmax, bdec_pool and bdec_rounds.
+
+THE PRE-FLIGHT SCREEN
+       Every  optimization  pass  has  an acceptance gate: a candidate is con-
+       structed, equivalence-checked, priced, and accepted only if it improves
+       one energy table and worsens neither. A screen is a NECESSARY CONDITION
+       on candidate existence, evaluated before the search:  if  no  candidate
+       can  be  constructed,  none can be accepted, so the pass would have re-
+       turned the netlist unchanged.  Screening therefore changes how long  an
+       answer takes and not what the answer is, which is why the release vali-
+       dation  checks  the  two configurations against each other and requires
+       the mapped netlist to be byte-identical.
+
+       Two passes carry one today.  --prefix re-synthesizes a carry chain,  so
+       it  reports  "no  carry  chains  at l_min=N" when the netlist has none.
+       --bdec realizes a row of B only when the outputs it combines are struc-
+       turally affine and their supports cancel; since the search accepts  one
+       elementary  row  addition  at  a time, the first accepted move can only
+       produce a row of weight two, so the screen asks  whether  any  PAIR  of
+       affine  outputs cancels. On the ISCAS circuits the answer is no and the
+       pass stops in about the time a default run takes rather than  searching
+       for a minute or more.
+
+       A  screened  pass  says so, and names the condition that failed, rather
+       than falling silent.
+
+PARITY BOUNDARY
+       The two front ends do not accept the same command lines, and  the  dif-
+       ference  is  worth  stating  exactly,  because  the  failure mode being
+       avoided is a setting that appears to be taken and is not.
+
+       The engine has a small flag set: the one given under OPTIONS as --tech,
+       --tech-dir,  --cap,  --option,  --options,   --json,   -o,   --convert,
+       --no-check,  --tags,  --dump-tags,  --pi-drive,  --saif, --saif-cycles,
+       --saif-period,   --spice-gen,   --schematic,   --bundle,   --list-tech,
+       --show-options,  -q  and -h/--help.  Every other dedicated flag in this
+       page (--k, --cover,  --davio,  --elim,  --k-ladder,  --passes,  --opti-
+       mize-all  and the rest) is a driver spelling and is rejected by the en-
+       gine as an unknown flag.
+
+       Every setting those flags stand for is still reachable  on  the  engine
+       through  --option  NAME=VALUE,  and it is honoured there, including the
+       K-ladder, the pass order and the wall-clock budget. Only three names in
+       the option table are  not  implemented  by  the  engine  at  all:  fam-
+       ily_for_pricing, emit_buffers and no_emit_buffers.  Those three are re-
+       fused  by name rather than ignored, so a command line that needs one of
+       them fails instead of quietly producing a different result. A run  that
+       needs them needs the driver.
+
+EXIT STATUS
+       0      The run completed and the result verified.
+
+       1      A usage error, an unreadable input, or a refused option.
+
+       2      An  internal  failure:  a  resource  limit, a failed equivalence
+              check, or a consistency assertion that did not hold.
+
+ENVIRONMENT
+       PYTHONHASHSEED
+              Must be 0. The driver asserts it and exits if it is not; the re-
+              nesis wrapper sets it for you.
+
+       CUDD_DIR
+              Where the CUDD decision-diagram library is  installed.  Read  at
+              build  time  by  the  makefiles,  not  at  run time. Defaults to
+              $HOME/opt/cudd.
+
+       ADSHIM Path  to  the  compiled  decision-diagram  shim.   Defaults   to
+              tools/adshim/libadshim.so under the bundle root.
+
+       RENESIS_ROOT
+              Bundle  root  for  the  engine,  when  it cannot be derived from
+              argv[0].  The --bundle flag does the same thing.
+
+       ABC    Path to an ABC binary. Optional; when set, the browser interface
+              adds a baseline comparison column.
+
+FILES
+       config/renesis_options.json
+              The option table. Every default in this page  comes  from  here,
+              and both front ends and the browser interface read it.
+
+       config/technology/*.json
+              Technology  descriptions:  cell  model,  structural constraints,
+              clocking discipline.
+
+       RENESIS-OPTIONS-LIST.md
+              Every option, its default, and what it does.
+
+       RENESIS-MANUAL.md
+              The full manual, including the measured runtime table.
+
+       validate_all.sh
+              The release validation. Reproduces the published numbers end  to
+              end.
+
+       other_options_validate.sh
+              Exercises the options the release validation does not reach.
+
+       Relative paths on the command line resolve against the bundle root, not
+       the  shell's working directory, because the driver changes directory to
+       the bundle so its data files are findable. Use absolute paths  if  that
+       is inconvenient.
+
+EXAMPLES
+       Map a circuit onto the default target and report its energy:
+
+           csrc/renesis csrc/samples/c17.v
+
+       The same, with a machine-readable record:
+
+           csrc/renesis --json run.json csrc/samples/c17.v
+
+       Target a different family and write both netlists:
+
+           csrc/renesis --tech 2lal -o build/c432 bench/c432.v
+
+       Turn  on a re-synthesis pass and a cut-size ladder on the engine, where
+       every setting goes through --option:
+
+           csrc/renesis --option davio=true --option passes=1 \
+                        --option k_ladder=12,8,6,4 --json run.json bench/c880.v
+
+       The same run on the driver, where the dedicated flags exist:
+
+           export PYTHONHASHSEED=0
+           renesis --optimize-all --k-ladder 12,8,6,4 --k-ladder-s 600 \
+                   --json run.json bench/c880.v
+
+       Check what a command line resolves to before committing the runtime:
+
+           csrc/renesis --option auto_bdd=true --show-options bench/c432.v
+
+       Price against a real workload rather than a uniform drive:
+
+           csrc/renesis --pi-drive saif --saif traces/c880.saif \
+                        --saif-cycles 100000 bench/c880.v
+
+       Build the 2LAL pipeline buffer stages instead  of  only  pricing  them.
+       This one is driver-only:
+
+           renesis --tech 2lal --emit-buffers bench/c432.v
+
+       Translate a netlist, with the round-trip check on:
+
+           csrc/renesis --convert out.blif bench/c432.v
+
+DIAGNOSTICS
+       Every  non-default  option  is echoed in the run header and recorded in
+       the JSON record, so a result always carries the  conditions  that  pro-
+       duced  it.  Each  re-synthesis  pass reports its verdict, including the
+       case where it found no candidate that  improved  either  energy  table.
+       Each ladder rung reports which K lost and by how much.
+
+SEE ALSO
+       RENESIS-OPTIONS-LIST.md,  RENESIS-MANUAL.md, RENESIS-BACKGROUND.md, MA-
+       COS-SETUP.md, PLATFORMS.md.
+
+AUTHOR
+       Mitchell A. Thornton.
+
+BUGS
+       Report issues on the project repository.
+
+Renesis v92.2                     August 2026                       RENESIS(1)

@@ -13,7 +13,7 @@
  *
  *  Author:      Mitchell A. Thornton
  *  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
- *  Modified:    2026-08-10  (Renesis v89.11)
+ *  Modified:    2026-08-16  (Renesis v92.2)
  *  Created:     Renesis v83 (earliest version token in file)
  * --------------------------------------------------------------------------- */
 /* renesis_cfg -- the options table and technology description, in C.
@@ -89,6 +89,7 @@ typedef struct {
     const char *price_cap, *passes;
     const char *pass_order;      /* v90.6: dispatcher order (canon'd)     */
     int    chain_l_min, chain_idx, overlap_guard;
+    int    prescreen;                 /* v91.3 pre-flight screens */
 
     /* --- verification / budget --------------------------------------- */
     int    equivalence_trials, equivalence_seed;

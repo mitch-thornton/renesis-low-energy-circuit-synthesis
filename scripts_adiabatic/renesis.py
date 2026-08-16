@@ -12,7 +12,7 @@
 #
 #  Author:      Mitchell A. Thornton
 #  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
-#  Modified:    2026-08-10  (Renesis v89.11)
+#  Modified:    2026-08-16  (Renesis v92.2)
 #  Created:     Renesis v84 (earliest version token in file)
 # ---------------------------------------------------------------------------
 """renesis -- the orchestration script.
@@ -246,7 +246,7 @@ except OSError as e:
 
 import renesis_config as rc
 
-VERSION = "v90.8"
+VERSION = "v92.2"
 
 _FLAG_TO_OPTION = {
     "--davio": "davio",
@@ -254,6 +254,10 @@ _FLAG_TO_OPTION = {
     "--bdec": "bdec", "--netprep": "netprep",
     "--emit-buffers": "emit_buffers",
     "--no-emit-buffers": "no_emit_buffers",
+}
+# v91.3: flags that turn an option OFF rather than on.
+_FLAG_TO_OPTION_FALSE = {
+    "--no-prescreen": "prescreen",
 }
 _VALUED = {"--tech": "technology", "--cap": "cap", "--k": "k",
            "--elim": "elim",
@@ -381,6 +385,9 @@ def parse_argv(argv, opt):
         elif a in _FLAG_TO_OPTION:
             opt.set(_FLAG_TO_OPTION[a], True)
             meta["set_by_user"].append(_FLAG_TO_OPTION[a])
+        elif a in _FLAG_TO_OPTION_FALSE:
+            opt.set(_FLAG_TO_OPTION_FALSE[a], False)
+            meta["set_by_user"].append(_FLAG_TO_OPTION_FALSE[a])
         elif a == "--no-check":
             meta["check"] = False
         elif a == "--net-activity":
@@ -860,6 +867,7 @@ def synthesize(nl0, opt, tech, family=None, cap=None, verbose=False,
                             e2_forest_ms=opt["e2_forest_ms"],
                             tag_trials=opt["tag_trials"],
                             tag_seed=opt["tag_seed"], drv=drv,
+                            prescreen=bool(opt["prescreen"]),
                             budget=_Budget(wall_s=opt["wall_s"]),
                             price_cap=_bcap, verbose=verbose,
                             synth_kw=_synth_kw)

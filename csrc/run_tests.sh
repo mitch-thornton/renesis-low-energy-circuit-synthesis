@@ -9,8 +9,8 @@
 #
 #  Author:      Mitchell A. Thornton
 #  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
-#  Modified:    2026-08-10  (Renesis v89.11)
-#  Created:     Renesis v89.11 (this cut)
+#  Modified:    2026-08-16  (Renesis v92.2)
+#  Created:     Renesis v89.11 (earliest version token in file)
 # ---------------------------------------------------------------------------
 # run_tests.sh -- parser round-trip, functional-equivalence, and quadratic-CP
 # cross-language smoke tests for the VSIM C port. Uses the self-contained
@@ -630,6 +630,40 @@ else
 fi
 
 echo
+echo "[19] live constants: absorption refuses, both languages agree (v92.2)"
+# BUG-V92-01.  A constant FEEDING a gate (bench/c2670.v ships one dead; the
+# re-synthesis passes create live ones).  The cover makes it its own block;
+# B1 absorption must refuse to swallow it.  The C used to accept the merge
+# Python refuses and die inside t_depth on a DEFAULT run, with no record.
+if [ -x renesis ] && [ -z "${RENESIS_STANDALONE:-}" ] && command -v python3 >/dev/null 2>&1; then
+  rm -f /tmp/cfp.$$* /tmp/cfc.$$*
+  ( cd .. && PYTHONHASHSEED=0 python3 scripts_adiabatic/renesis.py -q \
+      -o /tmp/cfp.$$ --json /tmp/cfp.$$.json csrc/samples/constfeed.v >/dev/null 2>&1 )
+  ( cd .. && PYTHONHASHSEED=0 ./csrc/renesis -q \
+      -o /tmp/cfc.$$.tgn --json /tmp/cfc.$$.json csrc/samples/constfeed.v >/dev/null 2>&1 )
+  if python3 -c "
+import json, sys
+def strip(p):
+    return [l for l in open(p).read().splitlines() if not l.startswith('.family ')]
+try:
+    c = json.load(open('/tmp/cfc.$$.json'))['result']
+    p = json.load(open('/tmp/cfp.$$.json'))['result']
+except Exception:
+    sys.exit(1)
+ok = (c['devices'] == p['devices'] == 10
+      and strip('/tmp/cfc.$$.tgn') == strip('/tmp/cfp.$$_mapped.tgn')
+      and any(l.startswith('g c ') and 'P()' in l
+              for l in open('/tmp/cfc.$$.tgn').read().splitlines()))
+sys.exit(0 if ok else 1)"; then
+    pass "constfeed: C == Python byte-identical; the constant kept as its own block"
+  else
+    bad "constfeed: C and Python DIVERGE on a live constant (BUG-V92-01 regressed)"
+  fi
+else
+  echo "  (skip: python3 not available or RENESIS_STANDALONE=1 -- C-only build gate)"
+fi
+echo
+
 echo "[18] v90.6 surfaces: dispatcher, budgets, drive tags, K-ladder, exports"
 # v90.6.  The ORCHESTRATION surfaces ported: the optimize() dispatcher
 # (--option pass_order, per-pass price_cap/passes budget maps), the pass

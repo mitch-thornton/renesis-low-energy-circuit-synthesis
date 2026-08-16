@@ -1,0 +1,86 @@
+// hamsynd -- Hamming(31,26) syndrome former.
+// Syndrome bit i is the parity of every code position whose index
+// has bit i set: five rows of weight 16 over 31 inputs.  Any two
+// rows also differ in 16 positions, so nothing cancels.  This is the
+// control that separates LINEAR from NEAR: the pass should decline.
+// Direct: 75 XOR2.
+module hamsynd(x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30, y0, y1, y2, y3, y4);
+  input x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13, x14, x15, x16, x17, x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28, x29, x30;
+  output y0, y1, y2, y3, y4;
+  wire w0_1, w0_2, w0_3, w0_4, w0_5, w0_6, w0_7, w0_8, w0_9, w0_10, w0_11, w0_12, w0_13, w0_14, w1_1, w1_2, w1_3, w1_4, w1_5, w1_6, w1_7, w1_8, w1_9, w1_10, w1_11, w1_12, w1_13, w1_14, w2_1, w2_2, w2_3, w2_4, w2_5, w2_6, w2_7, w2_8, w2_9, w2_10, w2_11, w2_12, w2_13, w2_14, w3_1, w3_2, w3_3, w3_4, w3_5, w3_6, w3_7, w3_8, w3_9, w3_10, w3_11, w3_12, w3_13, w3_14, w4_1, w4_2, w4_3, w4_4, w4_5, w4_6, w4_7, w4_8, w4_9, w4_10, w4_11, w4_12, w4_13, w4_14;
+  xor g0(w0_1, x0, x2);
+  xor g1(w0_2, x4, x6);
+  xor g2(w0_3, x8, x10);
+  xor g3(w0_4, x12, x14);
+  xor g4(w0_5, x16, x18);
+  xor g5(w0_6, x20, x22);
+  xor g6(w0_7, x24, x26);
+  xor g7(w0_8, x28, x30);
+  xor g8(w0_9, w0_1, w0_2);
+  xor g9(w0_10, w0_3, w0_4);
+  xor g10(w0_11, w0_5, w0_6);
+  xor g11(w0_12, w0_7, w0_8);
+  xor g12(w0_13, w0_9, w0_10);
+  xor g13(w0_14, w0_11, w0_12);
+  xor g14(y0, w0_13, w0_14);
+  xor g15(w1_1, x1, x2);
+  xor g16(w1_2, x5, x6);
+  xor g17(w1_3, x9, x10);
+  xor g18(w1_4, x13, x14);
+  xor g19(w1_5, x17, x18);
+  xor g20(w1_6, x21, x22);
+  xor g21(w1_7, x25, x26);
+  xor g22(w1_8, x29, x30);
+  xor g23(w1_9, w1_1, w1_2);
+  xor g24(w1_10, w1_3, w1_4);
+  xor g25(w1_11, w1_5, w1_6);
+  xor g26(w1_12, w1_7, w1_8);
+  xor g27(w1_13, w1_9, w1_10);
+  xor g28(w1_14, w1_11, w1_12);
+  xor g29(y1, w1_13, w1_14);
+  xor g30(w2_1, x3, x4);
+  xor g31(w2_2, x5, x6);
+  xor g32(w2_3, x11, x12);
+  xor g33(w2_4, x13, x14);
+  xor g34(w2_5, x19, x20);
+  xor g35(w2_6, x21, x22);
+  xor g36(w2_7, x27, x28);
+  xor g37(w2_8, x29, x30);
+  xor g38(w2_9, w2_1, w2_2);
+  xor g39(w2_10, w2_3, w2_4);
+  xor g40(w2_11, w2_5, w2_6);
+  xor g41(w2_12, w2_7, w2_8);
+  xor g42(w2_13, w2_9, w2_10);
+  xor g43(w2_14, w2_11, w2_12);
+  xor g44(y2, w2_13, w2_14);
+  xor g45(w3_1, x7, x8);
+  xor g46(w3_2, x9, x10);
+  xor g47(w3_3, x11, x12);
+  xor g48(w3_4, x13, x14);
+  xor g49(w3_5, x23, x24);
+  xor g50(w3_6, x25, x26);
+  xor g51(w3_7, x27, x28);
+  xor g52(w3_8, x29, x30);
+  xor g53(w3_9, w3_1, w3_2);
+  xor g54(w3_10, w3_3, w3_4);
+  xor g55(w3_11, w3_5, w3_6);
+  xor g56(w3_12, w3_7, w3_8);
+  xor g57(w3_13, w3_9, w3_10);
+  xor g58(w3_14, w3_11, w3_12);
+  xor g59(y3, w3_13, w3_14);
+  xor g60(w4_1, x15, x16);
+  xor g61(w4_2, x17, x18);
+  xor g62(w4_3, x19, x20);
+  xor g63(w4_4, x21, x22);
+  xor g64(w4_5, x23, x24);
+  xor g65(w4_6, x25, x26);
+  xor g66(w4_7, x27, x28);
+  xor g67(w4_8, x29, x30);
+  xor g68(w4_9, w4_1, w4_2);
+  xor g69(w4_10, w4_3, w4_4);
+  xor g70(w4_11, w4_5, w4_6);
+  xor g71(w4_12, w4_7, w4_8);
+  xor g72(w4_13, w4_9, w4_10);
+  xor g73(w4_14, w4_11, w4_12);
+  xor g74(y4, w4_13, w4_14);
+endmodule

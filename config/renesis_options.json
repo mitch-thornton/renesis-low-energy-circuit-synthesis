@@ -267,7 +267,7 @@
     true,
     false
    ],
-   "help": "Linear pre-filter (boundary decoder), v88. Re-encodes the OUTPUT space with an invertible GF(2) matrix B: the core computes h = B.f and a decoder network at the boundary computes f = B^-1.h. When rows of B combine outputs that share structure the core's shared BDD forest shrinks, and the decoder is cheap because weight-1 rows are free rail swaps in dual rail. Unlike the other four passes this one produces the FINAL MAPPING rather than a netlist, so it runs after the tag sweep and replaces the cover's result. EXPENSIVE: every candidate is priced through a full technology mapping. Use --wall-s and --price-cap."
+   "help": "Linear pre-filter (boundary decoder), v88. Re-encodes the OUTPUT space with an invertible GF(2) matrix B: the core computes h = B.f and a decoder network at the boundary computes f = B^-1.h. When rows of B combine outputs that share structure the core's shared BDD forest shrinks, and the decoder is cheap because weight-1 rows are free rail swaps in dual rail. Unlike the other five passes this one produces the FINAL MAPPING rather than a netlist, so it runs after the tag sweep and replaces the cover's result. EXPENSIVE: every candidate is priced through a full technology mapping. Use --wall-s and --price-cap.  REACH (v91.2): a row that combines outputs which are structurally affine in the primary inputs, and whose combination CANCELS -- the symmetric difference thinner than the thinnest support it came from -- is realised directly over those inputs, so the mapper sees the cancellation rather than two finished cones.  Through v91.1 it saw the cones, and candidates worth 20 per cent on the capped table were priced as regressions and refused.  Every other row is built as before.  Still out of reach: an output that is affine but built from AND/OR clusters rather than XOR, which is a functional property this structural test does not see.  Being linear is not enough either; the rows must also be close to one another.  See the --bdec section of RENESIS-MANUAL.md."
   },
   "bdec_wmax": {
    "default": 8,
@@ -322,6 +322,15 @@
     false
    ],
    "help": "Refuse a window that overlaps material an earlier window in the same pass already rewrote. On by default: two rewrites of the same logic in one pass are priced independently, so the pass would bill a saving twice and the second rewrite would be reasoning about logic that no longer exists."
+  },
+  "prescreen": {
+   "default": true,
+   "legal": [
+    true,
+    false
+   ],
+   "help": "Pre-flight structural screen on the opt-in re-synthesis passes (v91.3). Before a pass searches, a cheap structural test asks whether the pass could construct any candidate at all on this netlist; when the answer is no, the pass reports a screened verdict naming the condition that failed instead of searching. A screen is a NECESSARY condition on candidate existence, so a screened pass would have returned the netlist unchanged: the mapped result is identical either way, and validate_all.sh checks that byte for byte. Set it false to force every enabled pass to search regardless, which is what the paper measurements and the release validation do.",
+   "code_default": true
   },
   "emit_buffers": {
    "default": true,

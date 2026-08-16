@@ -7,8 +7,8 @@
  *
  *  Author:      Mitchell A. Thornton
  *  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
- *  Modified:    2026-08-10  (Renesis v89.11)
- *  Created:     Renesis v89.11 (this cut)
+ *  Modified:    2026-08-16  (Renesis v92.2)
+ *  Created:     Renesis v89.11 (earliest version token in file)
  * --------------------------------------------------------------------------- */
 /* ============================================================================
  * vsim_quad.c -- Exact collision probability for degree-2 (quadratic) maps via
