@@ -13,7 +13,7 @@
  *
  *  Author:      Mitchell A. Thornton
  *  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
- *  Modified:    2026-08-16  (Renesis v92.2)
+ *  Modified:    2026-08-16  (Renesis v92.3)
  *  Created:     Renesis v86 (earliest version token in file)
  * --------------------------------------------------------------------------- */
 /* parse_bench.c -- ISCAS-89 `.bench` front end for the C tool (v86, item 51e).

@@ -14,7 +14,7 @@
  *
  *  Author:      Mitchell A. Thornton
  *  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
- *  Modified:    2026-08-16  (Renesis v92.2)
+ *  Modified:    2026-08-16  (Renesis v92.3)
  *  Created:     Renesis v84.2 (earliest version token in file)
  * --------------------------------------------------------------------------- */
 /* adshim_bdd.cpp -- a persistent, handle-based BDD engine on CUDD (v85).

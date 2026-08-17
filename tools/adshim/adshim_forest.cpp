@@ -15,7 +15,7 @@
  *
  *  Author:      Mitchell A. Thornton
  *  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
- *  Modified:    2026-08-16  (Renesis v92.2)
+ *  Modified:    2026-08-16  (Renesis v92.3)
  *  Created:     Renesis v89.11 (earliest version token in file)
  * --------------------------------------------------------------------------- */
 /* adshim_forest.cpp -- E2 (TODO item 14): shared multi-root BDD forest over a

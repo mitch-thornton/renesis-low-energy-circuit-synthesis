@@ -13,7 +13,7 @@
 #
 #  Author:      Mitchell A. Thornton
 #  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
-#  Modified:    2026-08-16  (Renesis v92.2)
+#  Modified:    2026-08-16  (Renesis v92.3)
 #  Created:     Renesis v81 (earliest version token in file)
 # ---------------------------------------------------------------------------
 """Renesis optimization passes as a callable API -- not just research drivers.
@@ -148,7 +148,15 @@ def prefix_resynth(nl, price=None, price_cap=800, passes=3, l_min=8,
     price = price or release_price
     b = budget or Budget()
     t0 = time.time()
+    # v92.3 (BUG-V92-02): ratio is initialised HERE, on every pass, so that
+    # every return path carries it.  A pass that returns the netlist
+    # unchanged has ratio 1.0 by definition, and the C engine has always
+    # done this (ropt_elim.c sets rep->ratio_t1 = rep->ratio_t2 = 1.0 before
+    # its first early return).  The Python reference did not, which is a
+    # language divergence no parity cell exercised because no cell makes a
+    # pass raise.
     rep = dict(pass_name="prefix", l_min=l_min, chains=0, priced=0,
+               ratio=[1.0, 1.0],
                accepts=0, skipped_overlap=0, skipped_stale=0,
                overlap_guard=overlap_guard, verdict=None)
 
@@ -243,7 +251,8 @@ def window_resynth(nl, price=None, price_cap=200, passes=3, multi_output=True,
     b = budget or Budget()
     t0 = time.time()
     name = "mowin" if multi_output else "linwin"
-    rep = dict(pass_name=name, priced=0, accepts=0, skipped_overlap=0, near_misses=[],
+    rep = dict(pass_name=name, priced=0, accepts=0, skipped_overlap=0,
+               ratio=[1.0, 1.0], near_misses=[],
                overlap_guard=overlap_guard)
     inc = price(nl)
     rep["base"] = [inc["t1"], inc["t2"]]
@@ -362,7 +371,8 @@ def davio_resynth(nl, price=None, widths=DAVIO_WIDTHS, budget=None,
     price = price or release_price
     b = budget or Budget()
     t0 = time.time()
-    rep = dict(pass_name="davio", priced=0, accepts=0, widths_tried=0)
+    rep = dict(pass_name="davio", priced=0, accepts=0, widths_tried=0,
+               ratio=[1.0, 1.0])
     inc = price(nl)
     rep["base"] = [inc["t1"], inc["t2"]]
     base = inc
@@ -442,7 +452,8 @@ def elim_resynth(nl, price=None, mode="single", min_gain=1,
     price = price or release_price
     b = budget or Budget()
     t0 = time.time()
-    rep = dict(pass_name="elim", mode=mode, accepts=0, priced=0)
+    rep = dict(pass_name="elim", mode=mode, accepts=0, priced=0,
+               ratio=[1.0, 1.0])
     if mode in (None, "none", False):
         rep.update(verdict="not enabled", wall_s=0.0)
         return nl, rep

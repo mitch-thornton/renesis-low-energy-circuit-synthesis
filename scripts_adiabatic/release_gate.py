@@ -7,7 +7,7 @@
 #
 #  Author:      Mitchell A. Thornton
 #  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
-#  Modified:    2026-08-16  (Renesis v92.2)
+#  Modified:    2026-08-16  (Renesis v92.3)
 #  Created:     Renesis v76.4 (earliest version token in file)
 # ---------------------------------------------------------------------------
 """The release gate: refuse to cut a bundle that repeats a recorded mistake.
@@ -235,6 +235,47 @@ def check_version_unused(v):
         print("        | shipped so far: %s" % ", ".join("v" + r for r in rows))
     else:
         ok("v%s is unused (%d prior cut(s) recorded)" % (v, len(rows)))
+
+
+def check_options_expect():
+    """v92.3: the D15 EXPECT block states an option count.  It said 48 while
+    the table has held 49 since `prescreen` landed in v91.3, and the Mac and
+    the Spark both printed 49 for three cuts without the drift being caught.
+    A number a human maintains beside a number a program computes will drift,
+    so this check computes it and compares."""
+    print("[1d] D15 option count matches the shipped table")
+    tbl = os.path.join("config", "renesis_options.json")
+    docs = [f for f in os.listdir(".")
+            if f.startswith("VALIDATE-V") and f.endswith(".md")]
+    if not os.path.exists(tbl) or not docs:
+        bad("cannot check: missing %s or VALIDATE doc"
+            % ("config/renesis_options.json" if not os.path.exists(tbl)
+               else "VALIDATE-V*.md"))
+        return
+    try:
+        d = json.load(open(tbl))
+    except Exception as e:
+        bad("options table unreadable: %s" % e)
+        return
+    n = sum(1 for s_, b in d.items() if not s_.startswith("_")
+            for k, r in b.items() if isinstance(r, dict))
+    h = sum(1 for s_, b in d.items() if not s_.startswith("_")
+            for k, r in b.items() if isinstance(r, dict) and r.get("help"))
+    want = "options %d with help %d" % (n, h)
+    stale = []
+    for f in docs:
+        text = open(f, errors="replace").read()
+        for m in re.finditer(r"options (\d+) with help (\d+)", text):
+            if m.group(0) != want:
+                stale.append("%s says %r" % (f, m.group(0)))
+    if n != h:
+        bad("%d of %d options carry no help text" % (n - h, n))
+    elif stale:
+        bad("D15 EXPECT stale, table says %r" % want)
+        for x in stale[:4]:
+            print("        | %s" % x)
+    else:
+        ok("D15 EXPECT agrees with the table (%s)" % want)
 
 
 def check_hygiene():
@@ -753,6 +794,7 @@ def main():
     check_versions(a.version)
     check_source_headers(a.version)
     check_version_unused(a.version)
+    check_options_expect()
     if a.mode == "prepack":
         check_hygiene()
     else:

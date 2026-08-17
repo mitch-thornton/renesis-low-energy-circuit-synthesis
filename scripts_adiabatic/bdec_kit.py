@@ -11,7 +11,7 @@
 #
 #  Author:      Mitchell A. Thornton
 #  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
-#  Modified:    2026-08-16  (Renesis v92.2)
+#  Modified:    2026-08-16  (Renesis v92.3)
 #  Created:     Renesis v79 (earliest version token in file)
 # ---------------------------------------------------------------------------
 """The linear pre-filter (boundary decoder) as a callable pass.

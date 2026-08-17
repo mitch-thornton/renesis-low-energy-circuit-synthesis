@@ -9,7 +9,7 @@
 #
 #  Author:      Mitchell A. Thornton
 #  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
-#  Modified:    2026-08-16  (Renesis v92.2)
+#  Modified:    2026-08-16  (Renesis v92.3)
 #  Created:     Renesis v89.11 (earliest version token in file)
 # ---------------------------------------------------------------------------
 # run_tests.sh -- parser round-trip, functional-equivalence, and quadratic-CP
@@ -658,6 +658,50 @@ sys.exit(0 if ok else 1)"; then
     pass "constfeed: C == Python byte-identical; the constant kept as its own block"
   else
     bad "constfeed: C and Python DIVERGE on a live constant (BUG-V92-01 regressed)"
+  fi
+else
+  echo "  (skip: python3 not available or RENESIS_STANDALONE=1 -- C-only build gate)"
+fi
+echo
+
+echo "[20] a raising pass reports rather than kills the run (v92.3)"
+# BUG-V92-02.  elim_resynth catches an exception from kernel_extract, sets
+# verdict "pass raised" and an `error` string, and returns the netlist
+# unchanged -- correctly.  Two of its three return paths then left `ratio`
+# unset, and the driver's verbose report indexed st["ratio"][0], so the run
+# died with KeyError AFTER the pass had finished and BEFORE the record was
+# written, discarding the error string that said what had gone wrong.  The
+# C engine never had this hole: ropt_elim.c initialises ratio to 1.0 before
+# its first early return.  No parity cell caught the divergence because no
+# cell makes a pass raise.  This one does.
+if [ -z "${RENESIS_STANDALONE:-}" ] && command -v python3 >/dev/null 2>&1; then
+  if ( cd .. && PYTHONHASHSEED=0 python3 -c "
+import sys, os
+sys.path.insert(0, os.path.abspath('scripts_adiabatic'))
+from revsynth import load_any
+import optimize, elim_kit
+nl = load_any('csrc/samples/c17.v')
+_, r0 = optimize.elim_resynth(nl, mode='none')
+assert r0.get('ratio') == [1.0, 1.0], 'not-enabled path lost ratio'
+orig = elim_kit.kernel_extract
+def boom(*a, **k):
+    raise MemoryError('simulated extraction blowup')
+elim_kit.kernel_extract = boom
+try:
+    _, r1 = optimize.elim_resynth(nl, mode='both')
+finally:
+    elim_kit.kernel_extract = orig
+assert r1.get('ratio') == [1.0, 1.0], 'raising path lost ratio'
+assert 'MemoryError' in r1.get('error', ''), 'raising path lost the reason'
+assert r1.get('verdict') == 'pass raised', 'raising path lost the verdict'
+_, rd = optimize.davio_resynth(nl)
+assert rd.get('ratio') is not None, 'davio has no ratio'
+_, rp = optimize.prefix_resynth(nl)
+assert rp.get('ratio') is not None, 'prefix has no ratio'
+" >/dev/null 2>&1 ); then
+    pass "a raising pass keeps its ratio and its reason; the run survives"
+  else
+    bad "a raising pass loses its ratio or its reason (BUG-V92-02 regressed)"
   fi
 else
   echo "  (skip: python3 not available or RENESIS_STANDALONE=1 -- C-only build gate)"

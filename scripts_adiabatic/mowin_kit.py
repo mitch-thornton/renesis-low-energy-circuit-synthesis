@@ -14,7 +14,7 @@
 #
 #  Author:      Mitchell A. Thornton
 #  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
-#  Modified:    2026-08-16  (Renesis v92.2)
+#  Modified:    2026-08-16  (Renesis v92.3)
 #  Created:     Renesis v79 (earliest version token in file)
 # ---------------------------------------------------------------------------
 """mowin_kit.py -- item 22 stage 2, S2-A: MULTI-OUTPUT (shared-input)

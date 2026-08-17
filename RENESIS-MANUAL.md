@@ -1,6 +1,6 @@
 # Renesis User Manual
 
-**v92.2.** Every user-facing option of both front ends: what it does, its
+**v92.3.** Every user-facing option of both front ends: what it does, its
 default, and a runnable example. Every example in this document is executed
 against a fresh extraction of the bundle before the bundle ships, and a checker
 in the release procedure refuses the cut if any default here

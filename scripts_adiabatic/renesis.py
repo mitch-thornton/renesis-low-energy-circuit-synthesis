@@ -12,7 +12,7 @@
 #
 #  Author:      Mitchell A. Thornton
 #  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
-#  Modified:    2026-08-16  (Renesis v92.2)
+#  Modified:    2026-08-16  (Renesis v92.3)
 #  Created:     Renesis v84 (earliest version token in file)
 # ---------------------------------------------------------------------------
 """renesis -- the orchestration script.
@@ -246,7 +246,7 @@ except OSError as e:
 
 import renesis_config as rc
 
-VERSION = "v92.2"
+VERSION = "v92.3"
 
 _FLAG_TO_OPTION = {
     "--davio": "davio",
@@ -644,9 +644,23 @@ def main(argv):
     r = rec["result"]
     if v:
         for st in rec.get("pass_reports", []):
-            print("  %-10s %-46s %.4f/%.4f"
-                  % (st["pass_name"], st["verdict"][:46], st["ratio"][0],
-                     st["ratio"][1]), flush=True)
+            # v92.3 (BUG-V92-02): a pass that took an early return may report
+            # no ratio.  Printing is not worth a crash, and the diagnostic a
+            # raising pass leaves in `error` is the thing worth seeing, so it
+            # is surfaced here rather than lost with the run.  Before this,
+            # `--factor both` on a circuit whose extraction raised died with
+            # KeyError AFTER the pass had completed and BEFORE the run record
+            # was written, discarding the reason.
+            ratio = st.get("ratio")
+            if ratio is None:
+                print("  %-10s %-46s %s"
+                      % (st.get("pass_name", "?"),
+                         str(st.get("verdict", "no verdict"))[:46],
+                         st.get("error", "no ratio reported")), flush=True)
+            else:
+                print("  %-10s %-46s %.4f/%.4f"
+                      % (st["pass_name"], str(st["verdict"])[:46],
+                         ratio[0], ratio[1]), flush=True)
         # v88.1: the optional candidates the mapper built, and what the gate
         # did with each.  One line per decision, so a run that "changed
         # nothing" says which candidate lost and by how much.

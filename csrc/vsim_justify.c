@@ -12,7 +12,7 @@
  *
  *  Author:      Mitchell A. Thornton
  *  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
- *  Modified:    2026-08-16  (Renesis v92.2)
+ *  Modified:    2026-08-16  (Renesis v92.3)
  *  Created:     Renesis v89.11 (earliest version token in file)
  * --------------------------------------------------------------------------- */
 /* vsim_justify.c — optimized C implementation of single-pass VSIM justification
