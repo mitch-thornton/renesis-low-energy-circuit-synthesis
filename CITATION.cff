@@ -1,31 +1,45 @@
 cff-version: 1.2.0
-message: "If you use this software, please cite it using the metadata below."
+message: "If you use this software, please cite the version you used, using the metadata below."
 title: "Renesis: Low-Energy Circuit Synthesis"
+abstract: >-
+  Energy-aware synthesis for adiabatic and reversible logic.  Renesis accepts
+  an ordinary irreversible netlist and produces a verified, technology-mapped
+  energy-recovery circuit, with energy rather than area or delay as the
+  optimization criterion.  Every transformation is equivalence-checked against
+  the original netlist before its effect on energy is measured.
 type: software
+license: MIT
 
 authors:
-  - family-names: "Thornton"
+  - family-names: Thornton
     given-names: "Mitchell A."
     orcid: "https://orcid.org/0000-0003-3559-9511"
     affiliation: "Clearpoint Research, LLC"
 
-version: "92.3"
-date-released: 2026-08-17
+version: v92.3
+date-released: "2026-08-17"
+commit: 46713bdd1cb829debc44f865efcd038703990626
 
-doi: "10.5281/zenodo.21979881"
+doi: 10.5281/zenodo.21979881
+
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.21979881
+    description: "Archived snapshot of v92.3.  Cite this for a specific version."
+  - type: doi
+    value: 10.5281/zenodo.21979880
+    description: "Concept DOI, resolving to the most recent release of Renesis."
+  - type: url
+    value: "https://github.com/mitch-thornton/renesis-low-energy-circuit-synthesis/releases/tag/v92.3"
+    description: "The tagged release this record archives."
 
 repository-code: "https://github.com/mitch-thornton/renesis-low-energy-circuit-synthesis"
 
-license: "MIT"
-
-abstract: >-
-  Energy-aware synthesis for adiabatic and reversible logic. Netlist in,
-  verified circuit out, with the energy accounted for rather than asserted.
-
 keywords:
-  - adiabatic computing
+  - adiabatic logic
+  - energy-recovery logic
   - reversible computing
   - logic synthesis
+  - technology mapping
   - low-power design
-  - energy-efficient computing
   - electronic design automation

@@ -2,7 +2,7 @@
 
 **v92.3.**
 
-[![DOI](https://zenodo.org/badge/1333684151.svg)](https://doi.org/10.5281/zenodo.21979880)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21979880.svg)](https://doi.org/10.5281/zenodo.21979880)
 
 Energy-aware synthesis for adiabatic and reversible logic.  Netlist in,
 verified circuit out, with the energy accounted for rather than asserted.
@@ -72,9 +72,20 @@ process that does the synthesis.  See `WEB-UI-HOWTO.md`.
 
 ## Citing Renesis
 
-Renesis v92.3, archived at Zenodo: https://doi.org/10.5281/zenodo.21979880
+Cite the version you used.  For this release:
 
-The accompanying paper is arXiv:submit/7959520 [cs:AR] 17 Aug 2026
+> M. A. Thornton, *Renesis v92.3*, 2026.  Zenodo.
+> <https://doi.org/10.5281/zenodo.21979881>
+
+That DOI resolves to the archived v92.3 tree and does not move.
+<https://doi.org/10.5281/zenodo.21979880> is the all-versions DOI and always
+resolves to the newest release; it is the one in the badge above.
+
+GitHub's **Cite this repository** button reads `CITATION.cff`, which carries
+the same information in machine-readable form.
+
+The accompanying paper has been submitted to arXiv.  Its identifier will be
+recorded here once the paper is announced.
 
 ## Prerequisites
 
@@ -201,7 +212,7 @@ The C suite alone, if that is all you want:
 
     bash csrc/run_tests.sh
 
-Expect `ALL TESTS PASSED`: 18 stages covering both parsers, the synthesis
+Expect `ALL TESTS PASSED`: 21 stages covering both parsers, the synthesis
 pipelines, and an 82-pair byte-identity spot check between the Python and C
 implementations.  If a stage reports a skip, a prerequisite is missing --
 the message names it.
