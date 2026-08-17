@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+title: "Renesis: Low-Energy Circuit Synthesis"
+type: software
+
+authors:
+  - family-names: "Thornton"
+    given-names: "Mitchell A."
+    orcid: "https://orcid.org/0000-0003-3559-9511"
+    affiliation: "Clearpoint Research, LLC"
+
+version: "92.3"
+date-released: 2026-08-17
+
+doi: "10.5281/zenodo.21979881"
+
+repository-code: "https://github.com/mitch-thornton/renesis-low-energy-circuit-synthesis"
+
+license: "MIT"
+
+abstract: >-
+  Energy-aware synthesis for adiabatic and reversible logic. Netlist in,
+  verified circuit out, with the energy accounted for rather than asserted.
+
+keywords:
+  - adiabatic computing
+  - reversible computing
+  - logic synthesis
+  - low-power design
+  - energy-efficient computing
+  - electronic design automation

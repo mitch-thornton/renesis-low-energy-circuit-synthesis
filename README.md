@@ -2,6 +2,8 @@
 
 **v92.3.**
 
+[![DOI](https://zenodo.org/badge/1333684151.svg)](https://doi.org/10.5281/zenodo.21979880)
+
 Energy-aware synthesis for adiabatic and reversible logic.  Netlist in,
 verified circuit out, with the energy accounted for rather than asserted.
 
@@ -67,6 +69,12 @@ python3 scripts/revsynth_server.py                   # the general reversible UI
 Both bind `127.0.0.1` only.  **Do not open the `.html` files directly** --
 they are not programs; the page must be served so its requests reach the
 process that does the synthesis.  See `WEB-UI-HOWTO.md`.
+
+## Citing Renesis
+
+Renesis v92.3, archived at Zenodo: https://doi.org/10.5281/zenodo.21979880
+
+The accompanying paper is arXiv:submit/7959520 [cs:AR] 17 Aug 2026
 
 ## Prerequisites
 
