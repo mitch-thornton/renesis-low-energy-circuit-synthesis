@@ -13,7 +13,7 @@
 #
 #  Author:      Mitchell A. Thornton
 #  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
-#  Modified:    2026-08-16  (Renesis v92.3)
+#  Modified:    2026-08-17  (Renesis v92.4)
 #  Created:     Renesis v81 (earliest version token in file)
 # ---------------------------------------------------------------------------
 """Renesis optimization passes as a callable API -- not just research drivers.
@@ -453,7 +453,7 @@ def elim_resynth(nl, price=None, mode="single", min_gain=1,
     b = budget or Budget()
     t0 = time.time()
     rep = dict(pass_name="elim", mode=mode, accepts=0, priced=0,
-               ratio=[1.0, 1.0])
+               ratio=[1.0, 1.0], subcubes_skipped=0)
     if mode in (None, "none", False):
         rep.update(verdict="not enabled", wall_s=0.0)
         return nl, rep
@@ -462,10 +462,14 @@ def elim_resynth(nl, price=None, mode="single", min_gain=1,
     rep["base"] = [inc["t1"], inc["t2"]]
     cands = []
     try:
+        # v92.4 (BUG-V92-03): the budget goes INTO the extraction.  Before
+        # this cut it was first consulted after this call returned, so
+        # --wall-s bounded nothing inside the pass.
         cand, r = fx.kernel_extract(nl, value_limit=value_limit,
                                     min_gain=min_gain, mode=mode,
-                                    verbose=verbose)
+                                    verbose=verbose, budget=b)
         cands.append((cand, r))
+        rep["subcubes_skipped"] = r.get("subcubes_skipped", 0)
     except Exception as ex:                      # a pass may decline, not crash
         rep["error"] = "%s: %s" % (type(ex).__name__, ex)
         rep.update(verdict="pass raised", wall_s=round(time.time() - t0, 1))

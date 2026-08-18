@@ -12,7 +12,7 @@
  *
  *  Author:      Mitchell A. Thornton
  *  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
- *  Modified:    2026-08-16  (Renesis v92.3)
+ *  Modified:    2026-08-17  (Renesis v92.4)
  *  Created:     Renesis v83 (earliest version token in file)
  * --------------------------------------------------------------------------- */
 /* renesis (C) -- the orchestration entry point.
@@ -60,7 +60,7 @@
  * fails the cut on any mismatch, same as the Python driver.  It sat at
  * v84 from the port's first cut through v89.7 while the tool changed
  * underneath it, which is exactly the drift the gate now forbids. */
-#define RENESIS_VERSION "v92.3"
+#define RENESIS_VERSION "v92.4"
 
 /* renesis_tags.c -- bit-exact port of CPython's MT19937 + the forward sweep. */
 double *renesis_forward_sim(const RNet *nl, int trials, int seed);
@@ -1354,12 +1354,14 @@ int main(int argc, char **argv)
                             "  \"accepts\": %d,\n  \"priced\": %d,\n"
                             "  \"eliminated\": %d,\n"
                             "  \"extractions\": %d,\n"
+                            "  \"subcubes_skipped\": %d,\n"
                             "  \"gates_in\": %d,\n  \"gates_out\": %d,\n"
                             "  \"base\": [%.17g, %.17g],\n"
                             "  \"ratio\": [%.17g, %.17g]\n },\n",
                         elim_rep.mode, elim_rep.verdict, elim_rep.budget,
                         elim_rep.accepts, elim_rep.priced,
                         elim_rep.eliminated, elim_rep.extractions,
+                        elim_rep.subcubes_skipped,
                         elim_rep.gates_in, elim_rep.gates_out,
                         elim_rep.base_t1, elim_rep.base_t2,
                         elim_rep.ratio_t1, elim_rep.ratio_t2);

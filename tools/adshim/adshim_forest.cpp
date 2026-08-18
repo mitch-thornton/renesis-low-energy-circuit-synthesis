@@ -15,7 +15,7 @@
  *
  *  Author:      Mitchell A. Thornton
  *  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
- *  Modified:    2026-08-16  (Renesis v92.3)
+ *  Modified:    2026-08-17  (Renesis v92.4)
  *  Created:     Renesis v89.11 (earliest version token in file)
  * --------------------------------------------------------------------------- */
 /* adshim_forest.cpp -- E2 (TODO item 14): shared multi-root BDD forest over a
@@ -69,6 +69,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#if defined(__GLIBC__)
+#include <malloc.h>                    /* v92.4 (BUG-V92-05): mallopt */
+#endif
 #include "cudd.h"
 #include <vector>
 #include <unordered_map>
@@ -120,6 +123,31 @@ extern "C" int ad_forest_build(int n_in, int n_gates, const int32_t *gates,
                                long time_limit_ms)
 {
     if (n_in < 0 || n_gates < 0 || n_out <= 0) return -1;
+#if defined(__GLIBC__)
+    /* v92.4 (BUG-V92-05): glibc returns this manager's freed tables to the
+     * kernel on every teardown and re-faults them on the next build.  The E2
+     * challenger calls this function once per candidate (1155 times on
+     * reconv24), so on glibc the flow re-faulted ~256 MiB per call -- 75.7M
+     * minor faults, 288 GiB of page traffic through a 302 MiB process, and
+     * 95% of the wall time (owner's Spark, aarch64: Python leg 125.7 s ->
+     * 6.2 s, C engine 125.8 s -> 5.6 s, outputs byte-identical; macOS
+     * caches the pages and never had the penalty; x86-64 glibc absorbs the
+     * same fault count without measurable cost).  M_TRIM_THRESHOLD -1 stops
+     * the give-back, M_MMAP_MAX 0 keeps large blocks off mmap so the first
+     * setting can hold them; NEITHER works alone (measured).  Cost: peak RSS
+     * +5.2% on reconv24.  Allocator policy only -- no result can move.
+     * Once-guarded; scoped here rather than a library constructor so a
+     * program linking the shim without using the forest is untouched.
+     * AD_NO_MALLOC_TUNE=1 in the environment disables it. */
+    static int malloc_tuned = 0;
+    if (!malloc_tuned) {
+        if (!getenv("AD_NO_MALLOC_TUNE")) {
+            mallopt(M_TRIM_THRESHOLD, -1);
+            mallopt(M_MMAP_MAX, 0);
+        }
+        malloc_tuned = 1;
+    }
+#endif
     long long avail = ad_mem_available();
     long memcap = avail > 0 ? (long)(avail / 4 / 100) : 0;  /* 100 B/node prior */
     long cap = max_live > 0 ? max_live : 0;

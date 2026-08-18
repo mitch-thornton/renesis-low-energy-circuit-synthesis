@@ -16,22 +16,15 @@ authors:
     orcid: "https://orcid.org/0000-0003-3559-9511"
     affiliation: "Clearpoint Research, LLC"
 
-version: v92.3
+version: v92.4
 date-released: "2026-08-17"
-commit: 46713bdd1cb829debc44f865efcd038703990626
 
-doi: 10.5281/zenodo.21979881
+doi: 10.5281/zenodo.21979880
 
 identifiers:
   - type: doi
-    value: 10.5281/zenodo.21979881
-    description: "Archived snapshot of v92.3.  Cite this for a specific version."
-  - type: doi
     value: 10.5281/zenodo.21979880
-    description: "Concept DOI, resolving to the most recent release of Renesis."
-  - type: url
-    value: "https://github.com/mitch-thornton/renesis-low-energy-circuit-synthesis/releases/tag/v92.3"
-    description: "The tagged release this record archives."
+    description: "Concept DOI, resolving to the most recent release of Renesis.  Each release carries its own version DOI, minted by Zenodo when the release is published."
 
 repository-code: "https://github.com/mitch-thornton/renesis-low-energy-circuit-synthesis"
 

@@ -14,7 +14,7 @@
 #
 #  Author:      Mitchell A. Thornton
 #  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
-#  Modified:    2026-08-16  (Renesis v92.3)
+#  Modified:    2026-08-17  (Renesis v92.4)
 #  Created:     Renesis v89.10 (earliest version token in file)
 # ---------------------------------------------------------------------------
 """gen_spice_cells.py -- build the bundle's spice/ technology-cell library.

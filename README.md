@@ -1,6 +1,6 @@
 # Renesis
 
-**v92.3.**
+**v92.4.**
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21979880.svg)](https://doi.org/10.5281/zenodo.21979880)
 
@@ -72,14 +72,12 @@ process that does the synthesis.  See `WEB-UI-HOWTO.md`.
 
 ## Citing Renesis
 
-Cite the version you used.  For this release:
-
-> M. A. Thornton, *Renesis v92.3*, 2026.  Zenodo.
-> <https://doi.org/10.5281/zenodo.21979881>
-
-That DOI resolves to the archived v92.3 tree and does not move.
+Cite the version you used.
 <https://doi.org/10.5281/zenodo.21979880> is the all-versions DOI and always
-resolves to the newest release; it is the one in the badge above.
+resolves to the newest release; it is the one in the badge above.  Each
+release also carries its own version DOI, minted by Zenodo when the release
+is published and listed on the release's Zenodo record; the v92.3 release,
+for example, is <https://doi.org/10.5281/zenodo.21979881>.
 
 GitHub's **Cite this repository** button reads `CITATION.cff`, which carries
 the same information in machine-readable form.
@@ -212,7 +210,7 @@ The C suite alone, if that is all you want:
 
     bash csrc/run_tests.sh
 
-Expect `ALL TESTS PASSED`: 21 stages covering both parsers, the synthesis
+Expect `ALL TESTS PASSED`: 22 stages covering both parsers, the synthesis
 pipelines, and an 82-pair byte-identity spot check between the Python and C
 implementations.  If a stage reports a skip, a prerequisite is missing --
 the message names it.

@@ -14,7 +14,7 @@
 #
 #  Author:      Mitchell A. Thornton
 #  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
-#  Modified:    2026-08-16  (Renesis v92.3)
+#  Modified:    2026-08-17  (Renesis v92.4)
 #  Created:     Renesis v89.11 (earliest version token in file)
 # ---------------------------------------------------------------------------
 """Algebraic factoring for Renesis: the cube view, the divisor census, and the
@@ -600,11 +600,30 @@ def sop_view(nl):
     return view
 
 
+# v92.4 (BUG-V92-04): sub-cube enumeration is 2^w in the cube's width w, and
+# the docstring below justifies that by gate fanin (2 to 5) -- which is true
+# of cube_view but NOT of the post-elimination SOPs kernel_extract feeds it.
+# Substitution unions literals, so eliminate() can produce wide cubes: on the
+# development flow the widths are <= 8 everywhere, while the three circuits
+# whose factor arm died of MemoryError each carry outliers -- router 21/28/30,
+# c2670 34, t481 481 literals in one cube (2^481 subsets; the C port's mask
+# loop would shift by 481, which is undefined).  Width is a deterministic
+# structural property of the netlist, so this bound cannot differ between
+# machines.  16 sits in the measured gap (8 vs 21) with a 2x margin over the
+# widest legitimate cube, and 2^16 subsets is a bounded cost.  Skipped cubes
+# are COUNTED and reported (house rule: no silent caps).  A >16-literal
+# product shared verbatim by two nodes is not a plausible divisor; structural
+# hashing would have merged it long before this pass runs.
+SUBCUBE_WMAX = 16
+
+
 def _subcubes(cube, kmin=2):
     """Every sub-cube of at least `kmin` literals, the whole cube included.
 
     Exponential in the gate's fanin, which is 2 to 5 across the suite, so this
-    is a handful of tuples per gate rather than a search.
+    is a handful of tuples per gate rather than a search.  At the
+    kernel_extract call site the cube can be post-elimination wide; the caller
+    bounds width at SUBCUBE_WMAX before calling (v92.4, BUG-V92-04).
     """
     n = len(cube)
     return [tuple(cube[i] for i in range(n) if (mask >> i) & 1)
@@ -940,7 +959,7 @@ def sop_network(nl):
 
 
 def eliminate(nl, value_limit=0, cube_cap=64, sops=None, opaque=None,
-              max_rounds=None):
+              max_rounds=None, budget=None):
     """Collapse cheap nodes into their fanouts to build multi-cube SOPs.
 
     SIS's `eliminate`.  A node's VALUE is the literal occurrences the network
@@ -970,6 +989,12 @@ def eliminate(nl, value_limit=0, cube_cap=64, sops=None, opaque=None,
         max_rounds = 8 * len(sops) + 32
     changed, rounds, collapsed = True, 0, 0
     while changed and rounds < max_rounds:
+        # v92.4 (BUG-V92-03): the deadline is honoured INSIDE the kit, per the
+        # budget.py design rule.  One clock read per collapse round; with no
+        # budget set this is a single `is None` test and nothing else.  The C
+        # port checks at the same point (ropt_elim.c, eliminate_c).
+        if budget is not None and budget.check_cut("eliminate rounds", 0):
+            break
         changed, rounds = False, rounds + 1
         readers = {}
         for net, sop in sops.items():
@@ -1228,7 +1253,7 @@ def _quotient(sop, divisor):
 
 
 def kernel_extract(nl, value_limit=0, min_gain=1, max_rounds=8, cube_cap=64,
-                   verbose=False, mode="both"):
+                   verbose=False, mode="both", budget=None):
     """Bounded elimination, then iterated kernel extraction.
 
     Each round takes the kernels of every node, scores each candidate divisor
@@ -1244,14 +1269,29 @@ def kernel_extract(nl, value_limit=0, min_gain=1, max_rounds=8, cube_cap=64,
     t0 = time.time()
     sops, opaque = sop_network(nl)
     sops, erep = eliminate(nl, value_limit=value_limit, cube_cap=cube_cap,
-                           sops=sops, opaque=opaque)
+                           sops=sops, opaque=opaque, budget=budget)
     rep = dict(pass_name="kernel", mode=mode, eliminated=erep["collapsed"],
                elimination_truncated=erep["truncated"],
                gates_in=len(nl.gates), extractions=0, rounds=0,
-               saving=0, opaque=len(opaque))
+               saving=0, opaque=len(opaque), subcubes_skipped=0)
 
     fresh = [0]
     for rnd in range(max_rounds):
+        # v92.4 (BUG-V92-03): before this cut, `--wall-s` was never wired
+        # into this pass -- elim_kit read the clock in sixteen places and
+        # every one only REPORTED wall_s; the Budget was first consulted in
+        # elim_resynth after this function returned.  The 12-bit hash factor
+        # cell therefore ran 5701 s past its 10800 s search budget and only
+        # the harness hard kill at 16500 s could end it (observed twice, on
+        # v92.2 and v92.3).  Three check points now, mirrored exactly in
+        # ropt_elim.c: the top of each extraction round (here), the scoring
+        # loop below, and the eliminate() round loop.  On expiry the pass
+        # keeps the extractions of COMPLETED rounds, discards the partial
+        # round, and the truncation is recorded in the budget report -- a
+        # budget only ever removes work, per budget.py's design rule, so an
+        # unbounded run (the parity matrix) is untouched by this cut.
+        if budget is not None and budget.check_cut("kernel rounds", 0):
+            break
         rep["rounds"] = rnd + 1
         # CANDIDATE DIVISORS ARE KERNELS *AND* RECTANGLES.
         #
@@ -1275,6 +1315,9 @@ def kernel_extract(nl, value_limit=0, min_gain=1, max_rounds=8, cube_cap=64,
         for net in sorted(sops):
             for c in sops[net]:
                 if len(c) < 2:
+                    continue
+                if len(c) > SUBCUBE_WMAX:      # v92.4 (BUG-V92-04)
+                    rep["subcubes_skipped"] += 1
                     continue
                 for sub in _subcubes(tuple(sorted(c))):
                     sub_users.setdefault(sub, set()).add(net)
@@ -1316,7 +1359,15 @@ def kernel_extract(nl, value_limit=0, min_gain=1, max_rounds=8, cube_cap=64,
         # the inequality this module says it uses, and it rejected every
         # candidate c880 had: the best scored exactly 1.
         best, best_gain, best_use, best_pol = None, min_gain - 1, None, 1
-        for key, k in sorted(cands.items()):
+        cut = False
+        for ci, (key, k) in enumerate(sorted(cands.items())):
+            # v92.4 (BUG-V92-03): the scoring loop is the dominant cost,
+            # |candidates| x 2 polarities x |nodes| divisions.  Checked every
+            # 64 candidates; on a cut the PARTIAL round is discarded rather
+            # than extracting a best that depends on where the clock fell.
+            if budget is not None and budget.check_cut("kernel scoring", ci):
+                cut = True
+                break
             if not k:
                 continue
             comp = _complement([frozenset(c) for c in k], cap=cube_cap)
@@ -1341,6 +1392,8 @@ def kernel_extract(nl, value_limit=0, min_gain=1, max_rounds=8, cube_cap=64,
                 gain -= _sop_literals([frozenset(c) for c in node_sop])
                 if gain > best_gain:
                     best, best_gain, best_use, best_pol = k, gain, users, pol
+        if cut:
+            break                      # v92.4: partial round discarded
         if best is None:
             break
         nm = "_kd%d" % fresh[0]

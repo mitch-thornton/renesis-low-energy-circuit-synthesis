@@ -20,7 +20,7 @@
  *
  *  Author:      Mitchell A. Thornton
  *  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
- *  Modified:    2026-08-16  (Renesis v92.3)
+ *  Modified:    2026-08-17  (Renesis v92.4)
  *  Created:     Renesis v90.1 (earliest version token in file)
  * --------------------------------------------------------------------------- */
 #ifndef ROPT_H
@@ -117,6 +117,7 @@ typedef struct {
     char   mode[16];
     int    accepts, priced, rejected_inequivalent;
     int    eliminated, extractions;
+    int    subcubes_skipped;               /* v92.4 (BUG-V92-04)          */
     int    gates_in, gates_out;
     double base_t1, base_t2;
     double ratio_t1, ratio_t2;

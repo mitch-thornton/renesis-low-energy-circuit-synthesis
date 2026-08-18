@@ -708,6 +708,73 @@ else
 fi
 echo
 
+echo "[21] the factor budget cuts and the sub-cube width bound report (v92.4)"
+# BUG-V92-03: --wall-s was never wired into kernel_extract -- elim_kit read
+# the clock in sixteen places and every one only REPORTED wall_s; the Budget
+# was first consulted in elim_resynth after the call returned, so only the
+# harness hard kill could end a long extraction.  BUG-V92-04: sub-cube
+# enumeration is 2^w in cube width, and post-elimination cubes are not
+# fanin-bounded (router 21/28/30, c2670 34, t481 481 literals) -- the
+# MemoryError of the three factor cells, and undefined behaviour in the C
+# mask shift.  Both fixed bilingually.  This cell asserts, in BOTH drivers:
+# a zero budget leaves a TRUNCATED receipt in the record and the run
+# survives; and a 20-literal cube is skipped, counted, and reported rather
+# than enumerated.
+if [ -x renesis ] && [ -z "${RENESIS_STANDALONE:-}" ] && command -v python3 >/dev/null 2>&1; then
+  # a 20-input AND: one post-SOP cube of width 20 > SUBCUBE_WMAX (16)
+  python3 -c "
+n = 20
+with open('/tmp/v924_wide.$$.pla', 'w') as f:
+    f.write('.i %d\n.o 1\n' % n)
+    f.write('1' * n + ' 1\n')
+    f.write('.e\n')"
+  if ( cd .. && PYTHONHASHSEED=0 python3 -c "
+import sys, os
+sys.path.insert(0, os.path.abspath('scripts_adiabatic'))
+from revsynth import load_any
+from budget import Budget
+import optimize, elim_kit
+assert elim_kit.SUBCUBE_WMAX == 16, 'bound moved without updating this cell'
+# 1. zero budget: the pass returns, the receipt says TRUNCATED, ratio lives
+nl = load_any('csrc/samples/c17.v')
+b = Budget(wall_s=0.0)
+out, rep = optimize.elim_resynth(nl, mode='both', budget=b)
+assert b.truncated and b.why in ('kernel rounds', 'kernel scoring',
+                                 'eliminate rounds'), 'no truncation receipt'
+assert 'TRUNCATED' in rep.get('budget', ''), 'receipt not in the record'
+assert rep.get('ratio') == [1.0, 1.0], 'budget cut lost ratio'
+# 2. wide cube: skipped and counted, never enumerated
+nlw = load_any('/tmp/v924_wide.$$.pla')
+outw, repw = optimize.elim_resynth(nlw, mode='both')
+assert repw.get('subcubes_skipped', 0) >= 1, 'wide cube was not counted'
+" >/dev/null 2>&1 ); then
+    pass "python: zero-budget receipt + wide-cube skip counted"
+  else
+    bad "python: budget receipt or sub-cube count missing (BUG-V92-03/04)"
+  fi
+  ( cd .. && PYTHONHASHSEED=0 ./csrc/renesis -q --option elim=both \
+      --option wall_s=0.001 -o /tmp/v924_cb.$$.tgn \
+      --json /tmp/v924_cb.$$.json bench/c880.v >/dev/null 2>&1 )
+  ( cd .. && PYTHONHASHSEED=0 ./csrc/renesis -q --option elim=both \
+      -o /tmp/v924_cw.$$.tgn --json /tmp/v924_cw.$$.json \
+      /tmp/v924_wide.$$.pla >/dev/null 2>&1 )
+  if python3 -c "
+import json, sys
+b = json.load(open('/tmp/v924_cb.$$.json'))['elim']
+w = json.load(open('/tmp/v924_cw.$$.json'))['elim']
+sys.exit(0 if ('TRUNCATED' in b.get('budget', '')
+               and b.get('ratio') == [1, 1]
+               and w.get('subcubes_skipped', 0) >= 1) else 1)"; then
+    pass "C: zero-budget receipt + wide-cube skip counted"
+  else
+    bad "C: budget receipt or sub-cube count missing (BUG-V92-03/04)"
+  fi
+  rm -f /tmp/v924_wide.$$.pla /tmp/v924_cb.$$.* /tmp/v924_cw.$$.*
+else
+  echo "  (skip: python3 not available or RENESIS_STANDALONE=1 -- C-only build gate)"
+fi
+echo
+
 echo "[18] v90.6 surfaces: dispatcher, budgets, drive tags, K-ladder, exports"
 # v90.6.  The ORCHESTRATION surfaces ported: the optimize() dispatcher
 # (--option pass_order, per-pass price_cap/passes budget maps), the pass

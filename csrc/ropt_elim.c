@@ -20,7 +20,7 @@
  *
  *  Author:      Mitchell A. Thornton
  *  Copyright:   (c) 2026 Clearpoint Research, LLC.  All rights reserved.
- *  Modified:    2026-08-16  (Renesis v92.3)
+ *  Modified:    2026-08-17  (Renesis v92.4)
  *  Created:     Renesis v90.2 (earliest version token in file)
  * --------------------------------------------------------------------------- */
 #include "ropt.h"
@@ -452,7 +452,8 @@ typedef struct { int collapsed, rounds, truncated; } ElimRep;
 
 static void eliminate_c(const RNet *nl, SopMap *sops,
                         const int *opaque, int n_opaque,
-                        int value_limit, int cube_cap, ElimRep *er) {
+                        int value_limit, int cube_cap, ElimRep *er,
+                        RoptBudget *bud) {
     /* frozen: inputs of opaque gates + outputs of opaque gates (names) */
     Names frozen;
     nm_init(&frozen);
@@ -473,6 +474,10 @@ static void eliminate_c(const RNet *nl, SopMap *sops,
     int max_rounds = 8 * sm_count(sops) + 32;
     int changed = 1, rounds = 0, collapsed = 0;
     while (changed && rounds < max_rounds) {
+        /* v92.4 (BUG-V92-03): deadline honoured inside the kit, same check
+         * point as Python's eliminate().  n_done 0 => the every=64 amortiser
+         * always reads the clock; NULL bud is a no-op. */
+        if (ropt_budget_check_cut(bud, "eliminate rounds", 0)) break;
         changed = 0; rounds++;
         int nlive, *order = sm_sorted(sops, &nlive);
         for (int oi = 0; oi < nlive && !changed; oi++) {
@@ -975,10 +980,22 @@ static void cm_free(CandMap *C) {
 typedef struct {
     int eliminated, elim_truncated, extractions, rounds, saving, opaque;
     int gates_in, gates_out, nodes;
+    int subcubes_skipped;              /* v92.4 (BUG-V92-04) */
 } KxRep;
 
+/* v92.4 (BUG-V92-04): sub-cube enumeration is 2^w in cube width w, and
+ * post-elimination cubes are NOT fanin-bounded -- substitution unions
+ * literals.  Measured on the flow: development circuits stay <= 8 wide,
+ * while the three factor cells that died of MemoryError carry outliers of
+ * 21/28/30 (router), 34 (c2670) and 481 (t481) literals.  481 also made the
+ * old `1 << n` mask bound undefined behaviour (signed shift past 30).
+ * Width is a deterministic structural property, so this bound cannot differ
+ * between machines.  16 sits in the measured gap with a 2x margin; skipped
+ * cubes are counted, never silent.  Keep equal to elim_kit.SUBCUBE_WMAX. */
+#define AD_SUBCUBE_WMAX 16
+
 static RNet *kernel_extract_c(const RNet *nl, int value_limit, int min_gain,
-                              const char *mode, KxRep *kr) {
+                              const char *mode, KxRep *kr, RoptBudget *bud) {
     int both = !strcmp(mode, "both");
     SopMap sops;
     sm_init(&sops);
@@ -994,7 +1011,7 @@ static RNet *kernel_extract_c(const RNet *nl, int value_limit, int min_gain,
         }
     }
     ElimRep er;
-    eliminate_c(nl, &sops, opaque, n_opaque, value_limit, 64, &er);
+    eliminate_c(nl, &sops, opaque, n_opaque, value_limit, 64, &er, bud);
     memset(kr, 0, sizeof *kr);
     kr->eliminated = er.collapsed;
     kr->elim_truncated = er.truncated;
@@ -1003,6 +1020,15 @@ static RNet *kernel_extract_c(const RNet *nl, int value_limit, int min_gain,
 
     int fresh = 0;
     for (int rnd = 0; rnd < 8; rnd++) {
+        /* v92.4 (BUG-V92-03): --wall-s was never wired into this pass; the
+         * budget was first consulted by the caller AFTER this function
+         * returned, so only the harness hard kill could end a long search
+         * (the 12-bit hash factor cell, observed twice).  Three check
+         * points, mirrored exactly in elim_kit.kernel_extract: each round
+         * top (here), the scoring loop, and eliminate_c.  On a cut the
+         * extractions of completed rounds are KEPT, the partial round is
+         * discarded, and the truncation is recorded in the budget report. */
+        if (ropt_budget_check_cut(bud, "kernel rounds", 0)) break;
         kr->rounds = rnd + 1;
         CandMap cands;
         cm_init(&cands);
@@ -1024,9 +1050,17 @@ static RNet *kernel_extract_c(const RNet *nl, int value_limit, int min_gain,
                 for (int ci = 0; ci < s->n; ci++) {
                     const Cube *c = &s->c[ci];
                     if (c->n < 2) continue;
+                    if (c->n > AD_SUBCUBE_WMAX) {     /* v92.4 (BUG-V92-04) */
+                        kr->subcubes_skipped++;
+                        continue;
+                    }
                     int n = c->n;
-                    for (int mask = 1; mask < (1 << n); mask++) {
-                        int bits = __builtin_popcount((unsigned)mask);
+                    /* v92.4: unsigned bound; with n <= AD_SUBCUBE_WMAX the
+                     * shift is defined, and the old `1 << n` at n = 481
+                     * (t481's widest post-elimination cube) was UB. */
+                    const unsigned mlim = 1u << n;
+                    for (unsigned mask = 1; mask < mlim; mask++) {
+                        int bits = __builtin_popcount(mask);
                         if (bits < 2) continue;
                         Cube sub;
                         sub.l = xm(sizeof(Lit) * (size_t)bits);
@@ -1185,7 +1219,15 @@ static RNet *kernel_extract_c(const RNet *nl, int value_limit, int min_gain,
         int best_nuse = 0;
 
         int nlive, *order = sm_sorted(&sops, &nlive);
+        int cut = 0;
         for (int c0 = 0; c0 < cands.n; c0++) {
+            /* v92.4 (BUG-V92-03): dominant cost -- |cands| x 2 polarities x
+             * |nodes| divisions.  Checked every 64 candidates (the
+             * amortiser); on a cut the partial round is discarded below. */
+            if (ropt_budget_check_cut(bud, "kernel scoring", c0)) {
+                cut = 1;
+                break;
+            }
             const Sop *k = &cands.vals[cix[c0]];
             if (k->n == 0) continue;
             Sop *comp = complement(k, 64);
@@ -1249,6 +1291,17 @@ static RNet *kernel_extract_c(const RNet *nl, int value_limit, int min_gain,
             if (comp) { sop_free(comp); free(comp); }
         }
         free(order); free(cix);
+        if (cut) {                     /* v92.4: partial round discarded */
+            if (best_use) {
+                for (int u = 0; u < best_nuse; u++) {
+                    sop_free(&best_use[u].q);
+                    sop_free(&best_use[u].rem);
+                }
+                free(best_use);
+            }
+            cm_free(&cands);
+            break;
+        }
         if (best_i < 0) { cm_free(&cands); break; }
 
         char nmb[32];
@@ -1321,9 +1374,12 @@ RNet *ropt_elim_resynth(const RNet *nl, const RoptPriceCfg *pc,
     rep->base_t2 = inc.t2;
 
     KxRep kr;
-    RNet *cand = kernel_extract_c(nl, value_limit, min_gain, mode, &kr);
+    /* v92.4 (BUG-V92-03): the budget goes INTO the extraction; before this
+     * cut it was first consulted below, after the expensive call returned. */
+    RNet *cand = kernel_extract_c(nl, value_limit, min_gain, mode, &kr, bud);
     rep->eliminated = kr.eliminated;
     rep->extractions = kr.extractions;
+    rep->subcubes_skipped = kr.subcubes_skipped;
     rep->gates_in = kr.gates_in;
     if (!cand) {
         /* Python: except -> verdict "pass raised", input returned */
