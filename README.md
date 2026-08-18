@@ -76,8 +76,9 @@ Cite the version you used.
 <https://doi.org/10.5281/zenodo.21979880> is the all-versions DOI and always
 resolves to the newest release; it is the one in the badge above.  Each
 release also carries its own version DOI, minted by Zenodo when the release
-is published and listed on the release's Zenodo record; the v92.3 release,
-for example, is <https://doi.org/10.5281/zenodo.21979881>.
+is published and listed on the release's Zenodo record.  This release,
+v92.4, is <https://doi.org/10.5281/zenodo.21987620>; the v92.3 release is
+<https://doi.org/10.5281/zenodo.21979881>.
 
 GitHub's **Cite this repository** button reads `CITATION.cff`, which carries
 the same information in machine-readable form.
