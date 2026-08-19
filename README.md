@@ -83,8 +83,14 @@ v92.4, is <https://doi.org/10.5281/zenodo.21987620>; the v92.3 release is
 GitHub's **Cite this repository** button reads `CITATION.cff`, which carries
 the same information in machine-readable form.
 
-The accompanying paper has been submitted to arXiv.  Its identifier will be
-recorded here once the paper is announced.
+The accompanying paper is:
+
+> M. A. Thornton, "Renesis: Energy-Aware Synthesis of Adiabatic Logic from
+> Irreversible Netlists," arXiv:2608.17139 [cs.AR], 2026.
+> <https://arxiv.org/abs/2608.17139>
+
+Cite the paper for the methodology, and cite a Zenodo DOI above for the
+specific software version you ran.
 
 ## Prerequisites
 
